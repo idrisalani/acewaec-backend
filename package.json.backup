@@ -1,0 +1,36 @@
+﻿{
+    "name":  "acewaec-backend",
+    "version":  "1.0.0",
+    "description":  "AceWAEC Pro Backend API",
+    "main":  "dist/server.js",
+    "scripts":  {
+                    "dev":  "tsx watch src/server.ts",
+                    "build":  "tsc",
+                    "start":  "node dist/server.js",
+                    "prisma:generate":  "prisma generate",
+                    "prisma:migrate":  "prisma migrate dev",
+                    "prisma:studio":  "prisma studio"
+                },
+    "keywords":  [
+                     "waec",
+                     "education",
+                     "api"
+                 ],
+    "author":  "",
+    "license":  "MIT",
+    "dependencies":  {
+                         "cookie-parser":  "^1.4.7",
+                         "cors":  "^2.8.5",
+                         "dotenv":  "^17.2.2",
+                         "express-validator":  "^7.2.1",
+                         "helmet":  "^8.1.0"
+                     },
+    "devDependencies":  {
+                            "@types/cookie-parser":  "^1.4.9",
+                            "@types/cors":  "^2.8.19",
+                            "@types/node":  "^24.5.2",
+                            "nodemon":  "^3.1.10",
+                            "ts-node":  "^10.9.2",
+                            "tsx":  "^4.20.5"
+                        }
+}

@@ -1,0 +1,681 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== USER MANAGEMENT ==========
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  TUTOR
+  SCHOOL_ADMIN
+  SUPER_ADMIN
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM_MONTHLY
+  PREMIUM_YEARLY
+  INSTITUTIONAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PENDING
+}
+
+enum StudentCategory {
+  SCIENCE
+  ART
+  COMMERCIAL
+}
+
+enum ComprehensiveExamStatus {
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+}
+
+model ComprehensiveExam {
+  id                String           @id @default(cuid())
+  userId            String
+  name              String           @default("WAEC Mock Examination")
+  status            ExamStatus       @default(NOT_STARTED)
+  
+  // Exam Configuration
+  subjects          String[]         // Subject IDs to include
+  questionsPerSubject Int            @default(40)
+  durationPerDay    Int              @default(180) // 3 hours in minutes
+  
+  // Scheduling
+  startDate         DateTime
+  currentDay        Int              @default(1)
+  totalDays         Int              @default(7)
+  
+  // Overall Results
+  totalQuestions    Int              @default(0)
+  correctAnswers    Int              @default(0)
+  overallScore      Decimal?
+  
+  // Certificate
+  certificateIssued Boolean          @default(false)
+  certificateUrl    String?
+  
+  // Timestamps
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  completedAt       DateTime?
+  
+  // Relations
+  user              User             @relation(fields: [userId], references: [id])
+  examDays          ExamDay[]
+  subjectResults    SubjectResult[]
+  
+  @@map("comprehensive_exams")
+}
+
+model ExamDay {
+  id                String           @id @default(cuid())
+  examId            String
+  dayNumber         Int
+  subjectId         String
+  status            DayStatus        @default(LOCKED)
+  
+  // Session Details
+  sessionId         String?          @unique
+  startedAt         DateTime?
+  completedAt       DateTime?
+  timeSpent         Int              @default(0) // Seconds
+  
+  // Results
+  totalQuestions    Int              @default(0)
+  correctAnswers    Int              @default(0)
+  score             Decimal?
+  
+  // Relations
+  exam              ComprehensiveExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subject           Subject          @relation(fields: [subjectId], references: [id])
+  session           PracticeSession? @relation(fields: [sessionId], references: [id])
+  
+  @@unique([examId, dayNumber])
+  @@map("exam_days")
+}
+
+enum ExamStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum DayStatus {
+  LOCKED
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+}
+
+model SubjectResult {
+  id              String   @id @default(cuid())
+  examId          String
+  subjectId       String
+  
+  totalQuestions  Int
+  correctAnswers  Int
+  score           Decimal  // Percentage
+  grade           String   // A, B, C, D, F
+  timeTaken       Int      // seconds
+  
+  completedAt     DateTime @default(now())
+  
+  // Store answers
+  answers         Json     // Array of {questionId, selectedAnswer, isCorrect}
+  
+  // Relations
+  exam            ComprehensiveExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subject         Subject           @relation(fields: [subjectId], references: [id])
+  
+  @@unique([examId, subjectId])
+  @@map("subject_results")
+}
+
+model PerformanceAnalytics {
+  id                String   @id @default(cuid())
+  userId            String
+  subjectId         String
+  topicId           String?
+  
+  // Performance metrics
+  totalAttempts     Int      @default(0)
+  correctAnswers    Int      @default(0)
+  wrongAnswers      Int      @default(0)
+  accuracyRate      Decimal  @default(0) // Percentage
+  averageTimePerQ   Int      @default(0) // Seconds
+  
+  // Difficulty breakdown
+  easyCorrect       Int      @default(0)
+  easyTotal         Int      @default(0)
+  mediumCorrect     Int      @default(0)
+  mediumTotal       Int      @default(0)
+  hardCorrect       Int      @default(0)
+  hardTotal         Int      @default(0)
+  
+  // Time tracking
+  lastPracticed     DateTime?
+  totalStudyTime    Int      @default(0) // Seconds
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  user              User     @relation(fields: [userId], references: [id])
+  subject           Subject  @relation(fields: [subjectId], references: [id])
+  topic             Topic?   @relation(fields: [topicId], references: [id])
+  
+  @@unique([userId, subjectId, topicId])
+  @@map("performance_analytics")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String?  @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  avatar    String?
+  role      UserRole @default(STUDENT)
+  
+  // Subscription
+  subscriptionTier   SubscriptionTier   @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  subscriptionEndsAt DateTime?
+  stripeCustomerId   String?
+  
+  // School Association
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id])
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+  
+  // Relations
+  practiceSessions     PracticeSession[]
+  subscriptions        Subscription[]
+  tutorProfile         TutorProfile?
+  bookings             Booking[]
+  tutorBookings        Booking[]          @relation("TutorBookings")
+  studentAnalytics     StudentAnalytics[]
+  studentCategory      StudentCategory?
+  notifications        Notification[]
+  paymentTransactions  PaymentTransaction[]
+  comprehensiveExams   ComprehensiveExam[]
+  performanceAnalytics PerformanceAnalytics[]
+  accountStatus        AccountStatus       @default(ACTIVE)  // ADD THIS LINE
+  
+  @@map("users")
+}
+
+model School {
+  id          String  @id @default(cuid())
+  name        String
+  email       String  @unique
+  phone       String?
+  address     String?
+  state       String
+  country     String  @default("Nigeria")
+  
+  // License details
+  licenseType    String // Basic, Premium, Enterprise
+  maxStudents    Int    @default(100)
+  licenseEndsAt  DateTime?
+  
+  // Approval status - ADD THIS
+  isActive    Boolean @default(false)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  users         User[]
+  subscriptions Subscription[]
+  
+  @@map("schools")
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String?
+  schoolId          String?
+  tier              SubscriptionTier
+  status            SubscriptionStatus @default(PENDING)
+  amount            Decimal
+  currency          String             @default("NGN")
+  stripeSubscriptionId String?
+  
+  // Billing
+  startsAt  DateTime
+  endsAt    DateTime
+  renewsAt  DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user   User?   @relation(fields: [userId], references: [id])
+  school School? @relation(fields: [schoolId], references: [id])
+  
+  @@map("subscriptions")
+}
+
+// ========== QUESTIONS & SUBJECTS ==========
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  FILL_IN_BLANK
+  ESSAY
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Subject {
+  id          String @id @default(cuid())
+  name        String @unique // Mathematics, English, Physics, etc.
+  code        String @unique // MATH, ENG, PHY, etc.
+  categories  String[]  @default([]) 
+  description String?
+  isActive    Boolean @default(true)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  topics         Topic[]
+  questions      Question[]
+  subjectResults SubjectResult[]  // ADD THIS LINE
+  performanceAnalytics PerformanceAnalytics[]
+  examDays       ExamDay[]
+  
+  @@map("subjects")
+}
+
+model Topic {
+  id        String  @id @default(cuid())
+  name      String
+  subjectId String
+  isActive  Boolean @default(true)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions Question[]
+  performanceAnalytics PerformanceAnalytics[]
+  
+  @@map("topics")
+}
+
+model Question {
+  id             String          @id @default(cuid())  
+  content        String          
+  explanation    String?         
+  imageUrl       String?         
+  type           QuestionType    @default(MULTIPLE_CHOICE)
+  difficulty     DifficultyLevel @default(MEDIUM)    
+  year           Int?            
+  correctAnswer  String          
+  tags           String[]        @default([])
+  isActive       Boolean         @default(true)
+  category       StudentCategory @default(SCIENCE) // ADD DEFAULT VALUE
+
+  subjectId String
+  topicId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subject         Subject          @relation(fields: [subjectId], references: [id])
+  topic           Topic?            @relation(fields: [topicId], references: [id])
+  options         QuestionOption[]
+  practiceAnswers PracticeAnswer[]
+
+  @@index([category])
+  @@index([subjectId])
+  @@index([topicId])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id         String  @id @default(cuid())
+  questionId String
+  content    String  // Option text
+  label      String  // A, B, C, D
+  isCorrect  Boolean @default(false)
+  
+  // Relations
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@map("question_options")
+}
+
+// ========== PRACTICE SESSIONS ==========
+
+enum SessionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+  ABANDONED
+}
+
+enum SessionType {
+  PRACTICE
+  MOCK_EXAM
+  COMPREHENSIVE
+  TIMED_TEST
+  CUSTOM
+}
+
+model PracticeSession {
+  id           String        @id @default(cuid())
+  userId       String
+  name         String?
+  type         SessionType   @default(PRACTICE)
+  status       SessionStatus @default(NOT_STARTED)
+  
+  // Session Configuration
+  duration     Int?
+  questionCount Int          @default(20)
+  subjectIds   String[]
+  topicIds     String[]
+  difficulty   DifficultyLevel?
+  
+  // Session Results
+  totalQuestions   Int     @default(0)
+  correctAnswers   Int     @default(0)
+  wrongAnswers     Int     @default(0)
+  skippedQuestions Int     @default(0)
+  score           Decimal?
+  timeSpent       Int?
+  
+  // Pause/Resume tracking (ADD THESE)
+  pausedAt        DateTime?
+  resumedAt       DateTime?
+  totalPausedTime Int       @default(0)
+  
+  // Timestamps
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  user            User             @relation(fields: [userId], references: [id])
+  practiceAnswers PracticeAnswer[]
+  examDay     ExamDay?
+  
+  @@map("practice_sessions")
+}
+
+model AnswerHistory {
+  id              String   @id @default(cuid())
+  practiceAnswerId String
+  previousAnswer  String
+  newAnswer       String
+  changedAt       DateTime @default(now())
+  
+  practiceAnswer  PracticeAnswer @relation(fields: [practiceAnswerId], references: [id], onDelete: Cascade)
+  
+  @@map("answer_history")
+}
+
+model PracticeAnswer {
+  id             String          @id @default(uuid())
+  sessionId      String
+  questionId     String
+  selectedAnswer String?
+  isCorrect      Boolean         @default(false)
+  isFlagged      Boolean         @default(false) // ADD THIS LINE
+  timeSpent      Int?
+  createdAt      DateTime        @default(now())
+  
+  session        PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question       Question        @relation(fields: [questionId], references: [id])
+  answerHistory  AnswerHistory[]
+  
+  @@unique([sessionId, questionId])
+  @@map("PracticeAnswer")
+}
+
+// ========== TUTORING MARKETPLACE ==========
+
+enum TutorStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+model TutorProfile {
+  id          String      @id @default(cuid())
+  userId      String      @unique
+  bio         String
+  experience  String      // Years of experience
+  education   String      // Educational background
+  hourlyRate  Decimal
+  rating      Decimal?    @default(0)
+  totalReviews Int        @default(0)
+  status      TutorStatus @default(PENDING)
+  
+  // Availability
+  availableHours Json? // JSON object with weekly schedule
+  
+  // Verification
+  isVerified    Boolean @default(false)
+  documents     String[] // URLs to verification documents
+  
+  // Subjects they can teach
+  subjectIds    String[]
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user     User      @relation(fields: [userId], references: [id])
+  bookings Booking[]
+  reviews  TutorReview[]
+  
+  @@map("tutor_profiles")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Booking {
+  id        String        @id @default(cuid())
+  studentId String
+  tutorId   String
+  status    BookingStatus @default(PENDING)
+  
+  // Session details
+  subject     String
+  description String?
+  duration    Int         // Duration in minutes
+  hourlyRate  Decimal
+  totalAmount Decimal
+  
+  // Scheduling
+  scheduledAt DateTime
+  completedAt DateTime?
+  
+  // Payment
+  isPaid      Boolean @default(false)
+  paidAt      DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations - Fixed with unique constraint names
+  student      User          @relation(fields: [studentId], references: [id])
+  tutor        User          @relation("TutorBookings", fields: [tutorId], references: [id], map: "booking_tutor_fkey")
+  tutorProfile TutorProfile  @relation(fields: [tutorId], references: [userId], map: "booking_tutor_profile_fkey")
+  review       TutorReview?
+  
+  @@map("bookings")
+}
+
+model TutorReview {
+  id        String @id @default(cuid())
+  bookingId String @unique
+  tutorId   String
+  rating    Int    // 1-5 rating
+  comment   String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  booking Booking      @relation(fields: [bookingId], references: [id])
+  tutor   TutorProfile @relation(fields: [tutorId], references: [userId])
+  
+  @@map("tutor_reviews")
+}
+
+// ========== ANALYTICS & REPORTING ==========
+
+model StudentAnalytics {
+  id     String @id @default(cuid())
+  userId String
+  date   DateTime @default(now())
+  
+  // Daily metrics
+  questionsAttempted Int @default(0)
+  correctAnswers     Int @default(0)
+  wrongAnswers       Int @default(0)
+  timeSpent          Int @default(0) // in seconds
+  sessionsCompleted  Int @default(0)
+  
+  // Subject-wise performance (JSON)
+  subjectPerformance Json?
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, date])
+  @@map("student_analytics")
+}
+
+// ========== PAYMENTS ==========
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum TransactionType {
+  SUBSCRIPTION
+  TUTORING
+  SCHOOL_LICENSE
+}
+
+model PaymentTransaction {
+  id              String            @id @default(cuid())
+  userId          String
+  amount          Decimal
+  currency        String            @default("NGN")
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  
+  // Payment gateway details
+  stripePaymentId String?
+  paymentMethod   String?
+  
+  // Metadata
+  description String?
+  metadata    Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  
+  @@map("payment_transactions")
+}
+
+// ========== NOTIFICATIONS ==========
+
+enum NotificationType {
+  PRACTICE_REMINDER
+  SUBSCRIPTION_EXPIRY
+  TUTORING_BOOKING
+  SYSTEM_UPDATE
+  ACHIEVEMENT
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  userId  String
+  type    NotificationType
+  title   String
+  message String
+  isRead  Boolean          @default(false)
+  
+  // Metadata
+  data Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  
+  @@map("notifications")
+}
+
+// ADD THIS ENUM
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}

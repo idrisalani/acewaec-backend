@@ -1,0 +1,60 @@
+{
+  "name": "acewaec-backend",
+  "version": "1.0.0",
+  "description": "AceWAEC Pro Backend API",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "migrate:deploy": "prisma migrate deploy",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "seed:questions": "ts-node prisma/seeders/questions.seeder.ts",
+    "seed:subjects": "ts-node prisma/seeders/subjects.seeder.ts",
+    "seed:all": "npm run seed:subjects && npm run seed:questions",
+    "seed": "ts-node prisma/seeders/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seeders/seed.ts"
+  },
+  "keywords": [
+    "waec",
+    "education",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.7.0",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "psql": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^20.10.6",
+    "nodemon": "^3.1.4",
+    "prisma": "^6.16.2",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

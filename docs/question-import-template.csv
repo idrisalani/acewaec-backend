@@ -1,0 +1,3 @@
+content,explanation,type,difficulty,year,correctAnswer,subjectCode,topicName,optionA,optionB,optionC,optionD
+"What is 2+2?","Simple addition",MULTIPLE_CHOICE,EASY,2024,C,MATH,Algebra,"2","3","4","5"
+"Solve: 3x = 15","Divide both sides by 3",MULTIPLE_CHOICE,MEDIUM,2024,D,MATH,Algebra,"x=3","x=4","x=12","x=5"
