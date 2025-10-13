@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
-    "build": "tsc",
+    "build": "next build",
     "start": "node dist/server.js",
     "vercel-build": "prisma generate && prisma migrate deploy",
     "migrate:deploy": "prisma migrate deploy",
