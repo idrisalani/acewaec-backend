@@ -45,6 +45,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "next": "^15.5.4",
     "psql": "^0.0.1"
   },
   "devDependencies": {
