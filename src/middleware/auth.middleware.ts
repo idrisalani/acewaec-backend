@@ -1,3 +1,6 @@
+// backend/src/middleware/auth.middleware.ts
+// ✅ CORRECTED - Sets both userId and userRole
+
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
@@ -5,6 +8,11 @@ import { UserRole } from '@prisma/client';
 export interface AuthRequest extends Request {
   userId?: string;
   userRole?: UserRole;
+}
+
+interface JWTPayload {
+  userId: string;
+  userRole: UserRole;  // ✅ Must be in token
 }
 
 export const authenticateToken = (
@@ -47,12 +55,15 @@ export const authenticateToken = (
     console.log('🔐 Using secret:', secret.substring(0, 15) + '...');
     
     console.log('🔐 About to verify token...');
-    const decoded = jwt.verify(token, secret) as { userId: string };
+    const decoded = jwt.verify(token, secret) as JWTPayload;  // ✅ Typed
     
     console.log('✅ TOKEN VERIFIED!');
     console.log('✅ User ID:', decoded.userId);
+    console.log('✅ User Role:', decoded.userRole);
     
     req.userId = decoded.userId;
+    req.userRole = decoded.userRole;  // ✅ ADD THIS
+    
     next();
     
   } catch (error: any) {
@@ -64,7 +75,7 @@ export const authenticateToken = (
     
     return res.status(403).json({
       success: false,
-      error: 'Invalid token type'
+      error: 'Invalid token'
     });
   }
 };
@@ -72,12 +83,17 @@ export const authenticateToken = (
 export const requireRole = (roles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.userRole || !roles.includes(req.userRole)) {
-      res.status(403).json({ error: 'Insufficient permissions' });
+      res.status(403).json({ 
+        success: false,
+        error: 'Insufficient permissions' 
+      });
       return;
     }
     next();
   };
 };
 
-// ADD THIS: Convenience middleware for admin-only routes
+// Convenience middleware for admin-only routes
 export const requireAdmin = requireRole(['SUPER_ADMIN']);
+
+export default authenticateToken;
