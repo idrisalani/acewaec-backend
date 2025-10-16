@@ -1,5 +1,5 @@
 // backend/src/middleware/upload.local.ts
-// ✅ DEVELOPMENT - Local disk storage for development environment
+// ✅ DEVELOPMENT ONLY - Local disk storage for local development
 
 import multer from 'multer';
 import path from 'path';
@@ -7,12 +7,35 @@ import fs from 'fs';
 
 /**
  * Get upload directory path
+ * - Uses /tmp for serverless environments (Vercel, Lambda, etc.)
+ * - Uses local ./uploads for regular Node.js servers
  */
 const getUploadDir = () => {
-  const uploadsDir = path.join(process.cwd(), 'uploads', 'profiles');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+  // Check if running in serverless environment
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY;
+  
+  let uploadsDir: string;
+  
+  if (isServerless) {
+    // Use /tmp in serverless environments (files won't persist!)
+    uploadsDir = '/tmp/uploads/profiles';
+    console.warn('⚠️  Running in serverless environment. Using /tmp for uploads (temporary storage only)');
+    console.warn('⚠️  For production, use Cloudinary or S3 instead!');
+  } else {
+    // Use local directory in traditional server environments
+    uploadsDir = path.join(process.cwd(), 'uploads', 'profiles');
   }
+  
+  // Try to create directory if it doesn't exist
+  try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+  } catch (error) {
+    console.error('❌ Failed to create uploads directory:', error);
+    // Continue anyway - multer will handle the error when a file is actually uploaded
+  }
+  
   return uploadsDir;
 };
 

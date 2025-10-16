@@ -95,5 +95,3 @@ export const requireRole = (roles: UserRole[]) => {
 
 // Convenience middleware for admin-only routes
 export const requireAdmin = requireRole(['SUPER_ADMIN']);
-
-export default authenticateToken;
