@@ -1,4 +1,6 @@
 {
+  "buildCommand": "cd backend && npm install --legacy-peer-deps && npx prisma generate && npm run build",
+  "outputDirectory": "backend/dist",
   "rewrites": [
     {
       "source": "/(.*)",
