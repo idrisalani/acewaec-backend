@@ -6,11 +6,11 @@ import { PrismaClient } from '@prisma/client';
 import { AuthController } from '../controllers/auth.controller';
 import {
   authenticateToken,
-  AuthRequest,
-  requireAdmin,
+  requireAdmin
 } from '../middleware/auth.middleware';
 import { uploadProfilePicture } from '../middleware/upload';
 import '../types/multer';
+import { AuthRequest } from '../types/index'
 
 const router = express.Router();
 const prisma = new PrismaClient();

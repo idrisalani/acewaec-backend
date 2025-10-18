@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { PrismaClient, UserRole, AccountStatus } from '@prisma/client';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/index';
 
 const prisma = new PrismaClient();
 

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { PracticeService } from '../services/practice.service';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/index';
 import { QuestionsService } from '../services/questions.service';
 
 const prisma = new PrismaClient();

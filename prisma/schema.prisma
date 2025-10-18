@@ -43,10 +43,26 @@ enum StudentCategory {
   COMMERCIAL
 }
 
-enum ComprehensiveExamStatus {
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum ExamStatus {
+  NOT_STARTED
   IN_PROGRESS
   COMPLETED
-  EXPIRED
+  ABANDONED
+}
+
+enum DayStatus {
+  LOCKED
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETED
+  MISSED
 }
 
 model ComprehensiveExam {
@@ -112,21 +128,6 @@ model ExamDay {
   
   @@unique([examId, dayNumber])
   @@map("exam_days")
-}
-
-enum ExamStatus {
-  NOT_STARTED
-  IN_PROGRESS
-  COMPLETED
-  ABANDONED
-}
-
-enum DayStatus {
-  LOCKED
-  AVAILABLE
-  IN_PROGRESS
-  COMPLETED
-  MISSED
 }
 
 model SubjectResult {
@@ -211,6 +212,10 @@ model User {
   // School Association
   schoolId String?
   school   School? @relation(fields: [schoolId], references: [id])
+  studentCategory      StudentCategory?
+  
+  // Account Status
+  accountStatus        AccountStatus       @default(ACTIVE)
   
   // Timestamps
   createdAt DateTime @default(now())
@@ -224,12 +229,10 @@ model User {
   bookings             Booking[]
   tutorBookings        Booking[]          @relation("TutorBookings")
   studentAnalytics     StudentAnalytics[]
-  studentCategory      StudentCategory?
   notifications        Notification[]
   paymentTransactions  PaymentTransaction[]
   comprehensiveExams   ComprehensiveExam[]
   performanceAnalytics PerformanceAnalytics[]
-  accountStatus        AccountStatus       @default(ACTIVE)  // ADD THIS LINE
   
   @@map("users")
 }
@@ -248,7 +251,7 @@ model School {
   maxStudents    Int    @default(100)
   licenseEndsAt  DateTime?
   
-  // Approval status - ADD THIS
+  // Approval status
   isActive    Boolean @default(false)
   
   // Timestamps
@@ -318,7 +321,7 @@ model Subject {
   // Relations
   topics         Topic[]
   questions      Question[]
-  subjectResults SubjectResult[]  // ADD THIS LINE
+  subjectResults SubjectResult[]
   performanceAnalytics PerformanceAnalytics[]
   examDays       ExamDay[]
   
@@ -354,7 +357,7 @@ model Question {
   correctAnswer  String          
   tags           String[]        @default([])
   isActive       Boolean         @default(true)
-  category       StudentCategory @default(SCIENCE) // ADD DEFAULT VALUE
+  category       StudentCategory @default(SCIENCE)
 
   subjectId String
   topicId   String?
@@ -426,7 +429,7 @@ model PracticeSession {
   score           Decimal?
   timeSpent       Int?
   
-  // Pause/Resume tracking (ADD THESE)
+  // Pause/Resume tracking
   pausedAt        DateTime?
   resumedAt       DateTime?
   totalPausedTime Int       @default(0)
@@ -463,7 +466,7 @@ model PracticeAnswer {
   questionId     String
   selectedAnswer String?
   isCorrect      Boolean         @default(false)
-  isFlagged      Boolean         @default(false) // ADD THIS LINE
+  isFlagged      Boolean         @default(false)
   timeSpent      Int?
   createdAt      DateTime        @default(now())
   
@@ -550,9 +553,9 @@ model Booking {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  // Relations - Fixed with unique constraint names
-  student      User          @relation(fields: [studentId], references: [id])
-  tutor        User          @relation("TutorBookings", fields: [tutorId], references: [id], map: "booking_tutor_fkey")
+  // Relations
+  student      User          @relation(fields: [studentId], references: [id], map: "booking_student_fkey")
+  tutor        User          @relation("TutorBookings", fields: [tutorId], references: [id], map: "booking_tutor_user_fkey")
   tutorProfile TutorProfile  @relation(fields: [tutorId], references: [userId], map: "booking_tutor_profile_fkey")
   review       TutorReview?
   
@@ -670,12 +673,4 @@ model Notification {
   user User @relation(fields: [userId], references: [id])
   
   @@map("notifications")
-}
-
-// ADD THIS ENUM
-enum AccountStatus {
-  PENDING
-  ACTIVE
-  SUSPENDED
-  REJECTED
 }

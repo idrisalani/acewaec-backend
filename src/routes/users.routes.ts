@@ -3,10 +3,8 @@
 
 import express, { Response, RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
-import {
-  authenticateToken,
-  AuthRequest,
-} from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/index';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = express.Router();
 const prisma = new PrismaClient();

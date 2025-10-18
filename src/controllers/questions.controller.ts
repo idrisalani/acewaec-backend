@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { QuestionsService } from '../services/questions.service';
 import { PrismaClient, QuestionType, DifficultyLevel } from '@prisma/client';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest } from '../types/index';
 import csv from 'csv-parser';
 import fs from 'fs';
 import path from 'path';
