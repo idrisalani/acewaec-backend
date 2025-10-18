@@ -20,7 +20,8 @@ import uploadProfileCloudinary from './upload.cloudinary';
 let uploadProfilePicture: multer.Multer;
 
 // Determine if running in production/serverless
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === 'production' || !process.env.NODE_ENV;
+// const isProduction = process.env.NODE_ENV === 'production';
 const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY;
 
 // Select storage based on environment
