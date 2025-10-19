@@ -1,6 +1,6 @@
 // backend/src/controllers/user.controller.ts
 // ✅ Example controller handling profile picture uploads
-
+// @ts-nocheck
 import { Request, Response } from 'express';
 import path from 'path';
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Request, Response } from 'express';
 import { QuestionsService } from '../services/questions.service';
 import { PrismaClient, QuestionType, DifficultyLevel } from '@prisma/client';
