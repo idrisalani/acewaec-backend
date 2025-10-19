@@ -4,7 +4,7 @@
   "description": "AceWAEC Pro Backend API",
   "main": "dist/server.js",
   "engines": {
-    "node": "22.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
@@ -56,10 +56,10 @@
     "typescript": "^5.3.3"
   },
   "devDependencies": {
-    "@types/multer": "^2.0.0",
     "@types/node": "^24.8.1",
     "nodemon": "^3.1.4",
     "ts-node": "^10.9.2",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "@types/multer": "^1.4.7"
   }
 }
