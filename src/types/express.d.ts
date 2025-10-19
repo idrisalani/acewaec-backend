@@ -1,6 +1,4 @@
 // backend/src/types/express.d.ts
-// ✅ EXPRESS TYPE AUGMENTATION - Properly extends Express Request type globally
-
 import { UserRole } from './index';
 
 declare global {
@@ -13,6 +11,8 @@ declare global {
         email: string;
         role: UserRole;
       };
+      file?: any;        // ← ADD THIS
+      files?: any;       // ← ADD THIS
     }
   }
 }
