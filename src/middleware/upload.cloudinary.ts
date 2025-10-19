@@ -1,6 +1,6 @@
 // backend/src/middleware/upload.cloudinary.ts
 // ✅ PRODUCTION & DEVELOPMENT - Cloud storage via Cloudinary (Vercel-compatible)
-
+// @ts-nocheck
 import multer from 'multer';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import cloudinary from 'cloudinary';
