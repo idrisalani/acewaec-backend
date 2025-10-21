@@ -382,7 +382,8 @@ export class PracticeController {
     }
   }
 
-  // Add this new method to PracticeController class
+  // Add this FIXED getSessionResults method to your practice.controller.ts
+
   static async getSessionResults(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
@@ -394,9 +395,21 @@ export class PracticeController {
             include: {
               question: {
                 include: {
-                  subject: true,
-                  topic: true,
-                  options: true
+                  options: {
+                    select: {
+                      id: true,
+                      label: true,
+                      content: true,
+                      isCorrect: true
+                    }
+                  },
+                  subject: {
+                    select: {
+                      id: true,
+                      name: true,
+                      code: true
+                    }
+                  }
                 }
               }
             }
@@ -408,17 +421,27 @@ export class PracticeController {
         return res.status(404).json({ success: false, error: 'Session not found' });
       }
 
-      const questionsWithAnswers = session.practiceAnswers.map(answer => ({
-        ...answer.question,
-        userAnswer: answer.selectedAnswer || '',
-        isCorrect: answer.isCorrect
+      // ✅ FIXED: Map practiceAnswers to answers with correct structure
+      const answers = session.practiceAnswers.map(answer => ({
+        questionId: answer.questionId,
+        selectedAnswer: answer.selectedAnswer,
+        isCorrect: answer.isCorrect,
+        timeSpent: answer.timeSpent,
+        isFlagged: answer.isFlagged || false,
+        question: answer.question
       }));
 
       res.json({
         success: true,
         data: {
-          session,
-          questions: questionsWithAnswers
+          session: {
+            id: session.id,
+            score: Number(session.score || 0),
+            totalQuestions: session.totalQuestions,
+            correctAnswers: session.correctAnswers,
+            timeSpent: session.timeSpent || 0
+          },
+          answers  // ✅ FIXED: Changed from 'questions' to 'answers'
         }
       });
     } catch (error) {
@@ -704,8 +727,32 @@ export class PracticeController {
         ? { categories: { has: category as string }, isActive: true }
         : { isActive: true };
 
-      const subjects = await prisma.subject.findMany({ where });
-      res.json({ success: true, data: subjects });
+      const subjects = await prisma.subject.findMany({
+        where,
+        include: {
+          _count: {
+            select: { questions: true }  // Count questions per subject
+          }
+        },
+        orderBy: {
+          name: 'asc'
+        }
+      });
+
+      // Add question count to response
+      const subjectsWithCounts = subjects.map(subject => ({
+        id: subject.id,
+        name: subject.name,
+        code: subject.code,
+        description: subject.description,
+        categories: subject.categories,
+        isActive: subject.isActive,
+        questionCount: subject._count.questions,
+        createdAt: subject.createdAt,
+        updatedAt: subject.updatedAt
+      }));
+
+      res.json({ success: true, data: subjectsWithCounts });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get subjects';
       res.status(500).json({ success: false, error: message });

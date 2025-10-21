@@ -63,82 +63,106 @@ router.post(
 );
 
 /**
- * GET /practice/session/:sessionId
+ * GET /practice/sessions/:sessionId
  * Get details of an active practice session
  * AUTH required
  */
 router.get(
-  '/session/:sessionId',
+  '/sessions/:sessionId',
   auth,
   asyncHandler(PracticeController.getSession)
 );
 
 /**
- * GET /practice/session/:sessionId/questions
+ * GET /practice/sessions/:sessionId/questions
  * Get questions for current practice session
  * AUTH required
  */
 router.get(
-  '/session/:sessionId/questions',
+  '/sessions/:sessionId/questions',
   auth,
   asyncHandler(PracticeController.getSessionQuestions)
 );
 
 /**
- * POST /practice/session/:sessionId/submit-answer
+ * POST /practice/sessions/:sessionId/submit-answer
  * Submit an answer for a question in practice session
  * Body: { questionId, selectedAnswer }
  * AUTH required
  */
 router.post(
-  '/session/:sessionId/submit-answer',
+  '/sessions/:sessionId/submit-answer',
   auth,
   asyncHandler(PracticeController.submitAnswer)
 );
 
 /**
- * POST /practice/session/:sessionId/toggle-flag
+ * POST /practice/sessions/:sessionId/answer
+ * Alternative endpoint name for submitting answers
+ * Body: { questionId, selectedAnswer }
+ * AUTH required
+ */
+router.post(
+  '/sessions/:sessionId/answer',
+  auth,
+  asyncHandler(PracticeController.submitAnswer)
+);
+
+/**
+ * POST /practice/sessions/:sessionId/toggle-flag
  * Flag/unflag a question for review
  * Body: { questionId, isFlagged }
  * AUTH required
  */
 router.post(
-  '/session/:sessionId/toggle-flag',
+  '/sessions/:sessionId/toggle-flag',
   auth,
   asyncHandler(PracticeController.toggleFlag)
 );
 
 /**
- * POST /practice/session/:sessionId/pause
+ * POST /practice/sessions/:sessionId/pause
  * Pause a practice session
  * AUTH required
  */
 router.post(
-  '/session/:sessionId/pause',
+  '/sessions/:sessionId/pause',
   auth,
   asyncHandler(PracticeController.pauseSession)
 );
 
 /**
- * POST /practice/session/:sessionId/resume
+ * POST /practice/sessions/:sessionId/resume
  * Resume a paused practice session
  * AUTH required
  */
 router.post(
-  '/session/:sessionId/resume',
+  '/sessions/:sessionId/resume',
   auth,
   asyncHandler(PracticeController.resumeSession)
 );
 
 /**
- * POST /practice/session/:sessionId/complete
+ * POST /practice/sessions/:sessionId/complete
  * Complete/End a practice session and get results
  * AUTH required
  */
 router.post(
-  '/session/:sessionId/complete',
+  '/sessions/:sessionId/complete',
   auth,
   asyncHandler(PracticeController.completeSession)
+);
+
+/**
+ * GET /practice/sessions/:sessionId/results
+ * Get results of a completed practice session
+ * Alternative endpoint name (used by frontend)
+ * AUTH required
+ */
+router.get(
+  '/sessions/:sessionId/results',
+  auth,
+  asyncHandler(PracticeController.getSessionResults)
 );
 
 /**
@@ -153,12 +177,12 @@ router.get(
 );
 
 /**
- * GET /practice/session/:sessionId/history
+ * GET /practice/sessions/:sessionId/history
  * Get answer history for a session
  * AUTH required
  */
 router.get(
-  '/session/:sessionId/history',
+  '/sessions/:sessionId/history',
   auth,
   asyncHandler(PracticeController.getAnswerHistory)
 );
