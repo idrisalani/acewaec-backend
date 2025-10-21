@@ -32,11 +32,12 @@ const auth = authenticateToken as unknown as RequestHandler;
 /**
  * GET /practice/subjects
  * Get all subjects available for practice
+ * Query param: ?category=SCIENCE|ART|COMMERCIAL
  * NO AUTH - Public endpoint for testing
  */
 router.get(
   '/subjects',
-  asyncHandler(PracticeController.getSubjectsForPractice)
+  asyncHandler(PracticeController.getSubjects)  // ✅ FIXED: Was getSubjectsForPractice
 );
 
 /**
