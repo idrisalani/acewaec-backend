@@ -21,22 +21,44 @@ async function main() {
     { name: 'Computer Science', code: 'CS', description: 'Computer Science for WAEC', categories: ['SCIENCE', 'COMMERCIAL'] },
   ];
 
+  // ✅ FIX: Handle both unique constraints (name and code)
   const createdSubjects: any = {};
   for (const subject of subjects) {
-    createdSubjects[subject.code] = await prisma.subject.upsert({
-      where: { code: subject.code },
-      update: { 
-        description: subject.description,
-        categories: subject.categories  // Update categories too
-      },
-      create: { 
-        name: subject.name,
-        code: subject.code,
-        description: subject.description,
-        categories: subject.categories,
-        isActive: true 
-      },
+    const existing = await prisma.subject.findFirst({
+      where: {
+        OR: [
+          { code: subject.code },
+          { name: subject.name }
+        ]
+      }
     });
+
+    if (existing) {
+      console.log(`📝 Updating: ${subject.name}`);
+      const updated = await prisma.subject.update({
+        where: { id: existing.id },
+        data: {
+          name: subject.name,
+          code: subject.code,
+          description: subject.description,
+          categories: subject.categories,
+          isActive: true
+        }
+      });
+      createdSubjects[subject.code] = updated;
+    } else {
+      console.log(`✅ Creating: ${subject.name}`);
+      const created = await prisma.subject.create({
+        data: {
+          name: subject.name,
+          code: subject.code,
+          description: subject.description,
+          categories: subject.categories,
+          isActive: true
+        }
+      });
+      createdSubjects[subject.code] = created;
+    }
   }
   console.log('✅ Subjects with categories created');
 
