@@ -1,5 +1,4 @@
 import { Router, Response } from 'express';
-import { execSync } from 'child_process';
 
 const router = Router();
 
@@ -7,9 +6,6 @@ const router = Router();
  * POST /seed/run
  * ⚠️ TEMPORARY - Remove after production seeding
  * Runs database seed for one-time initialization
- * 
- * This executes the seed command directly instead of importing
- * to avoid TypeScript rootDir restrictions with prisma/seeders
  */
 router.post('/run', async (req: any, res: Response) => {
   try {
@@ -26,25 +22,29 @@ router.post('/run', async (req: any, res: Response) => {
 
     console.log('🌱 Starting database seed...');
     
-    // Run the seed command directly
+    // Import seeder dynamically
     try {
-      const output = execSync('npm run seed', { encoding: 'utf-8' });
-      console.log('Seed output:', output);
-    } catch (error: any) {
-      console.error('Seed command error:', error.message);
-      throw new Error(`Seed command failed: ${error.message}`);
+      // Use require instead of import to work with CommonJS
+      const seedModule = require('../../../prisma/seeders/questions.seeder');
+      const seedFunction = seedModule.default || seedModule;
+      
+      // Run the seeder
+      await seedFunction();
+      
+      console.log('✅ Database seeding completed successfully!');
+      
+      res.json({
+        success: true,
+        message: 'Database seeded successfully',
+        data: {
+          timestamp: new Date().toISOString(),
+          note: '⚠️ DELETE THIS ENDPOINT after seeding for security!'
+        }
+      });
+    } catch (importError: any) {
+      console.error('❌ Import error:', importError.message);
+      throw new Error(`Failed to import seeder: ${importError.message}`);
     }
-    
-    console.log('✅ Database seeding completed successfully!');
-    
-    res.json({
-      success: true,
-      message: 'Database seeded successfully',
-      data: {
-        timestamp: new Date().toISOString(),
-        note: '⚠️ DELETE THIS ENDPOINT after seeding for security!'
-      }
-    });
   } catch (error: any) {
     console.error('❌ Seeding error:', error);
     res.status(500).json({
