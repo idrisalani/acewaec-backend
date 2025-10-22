@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PracticeService } from '../services/practice.service';
 import { AuthRequest } from '../types/index';
 import { QuestionsService } from '../services/questions.service';
+import { AnalyticsService } from '../services/analytics.service';
 
 const prisma = new PrismaClient();
 
@@ -295,6 +296,13 @@ export class PracticeController {
           score: parseFloat(score)
         }
       });
+
+      try {
+        await AnalyticsService.updateAnalytics(sessionId, req.userId!);
+        console.log('✅ Analytics updated for session:', sessionId);
+      } catch (analyticsError: any) {
+        console.error('⚠️ Failed to update analytics:', analyticsError.message);
+      }
 
       res.json({
         success: true,
