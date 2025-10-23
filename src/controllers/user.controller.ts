@@ -169,12 +169,12 @@ export const uploadProfilePicture = async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    if (!req.file) {
+    if ((!req as any).file) {
       res.status(400).json({ success: false, message: 'No file uploaded' });
       return;
     }
 
-    const file = req.file as any;
+    const file = (req as any).file;
     let pictureUrl = file.secure_url || file.path;
 
     const user = await prisma.user.update({

@@ -243,12 +243,12 @@ router.post(
         return;
       }
 
-      if (!req.file) {
+      if ((!req as any).file) {
         res.status(400).json({ success: false, message: 'No file uploaded' });
         return;
       }
 
-      const file = req.file as any;
+      const file = (req as any).file as any;
       let pictureUrl = file.secure_url || file.path;
 
       const user = await prisma.user.update({
