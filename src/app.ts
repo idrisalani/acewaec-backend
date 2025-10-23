@@ -13,7 +13,7 @@ import practiceRoutes from './routes/practice.routes';
 import adminRoutes from './routes/admin.routes';
 import comprehensiveExamRoutes from './routes/comprehensiveExam.routes';
 import analyticsRoutes from './routes/analytics.routes';
-import seedRoutes from './routes/seed.routes';
+
 
 const app: Application = express();
 
@@ -50,7 +50,7 @@ app.use('/api/practice', practiceRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/comprehensive-exam', comprehensiveExamRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/seed', seedRoutes);
+
 
 // Error handling middleware (optional)
 app.use((err: any, req: any, res: any, next: any) => {
