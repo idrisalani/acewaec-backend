@@ -13,6 +13,7 @@ import practiceRoutes from './routes/practice.routes';
 import adminRoutes from './routes/admin.routes';
 import comprehensiveExamRoutes from './routes/comprehensiveExam.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import usersRoutes from './routes/users.routes';
 
 
 const app: Application = express();
@@ -45,6 +46,7 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes); 
 app.use('/api/questions', questionsRoutes);
 app.use('/api/practice', practiceRoutes);
 app.use('/api/admin', adminRoutes);
