@@ -58,7 +58,7 @@ export class AuthController {
           phone: true,
           role: true,
           avatar: true,
-          studentCategory: true,
+          studentCategory: true, // ✅ INCLUDE CATEGORY
           subscriptionTier: true,
           subscriptionStatus: true,
           subscriptionEndsAt: true,
@@ -80,10 +80,13 @@ export class AuthController {
         { expiresIn: '7d' }
       );
 
+      console.log('✅ Registration successful for:', user.email);
+      console.log('✅ Registered with category:', user.studentCategory); // ✅ DEBUG
+
       res.status(201).json({
         success: true,
         data: {
-          user,
+          user, // ✅ User includes studentCategory
           accessToken,
           refreshToken,
         },
@@ -110,9 +113,33 @@ export class AuthController {
 
       const normalizedEmail = email.toLowerCase().trim();
 
+      // ✅ UPDATED: Use select instead of include to ensure consistent field return
       const user = await prisma.user.findUnique({
         where: { email: normalizedEmail },
-        include: { school: true },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          password: true, // Needed for bcrypt comparison
+          role: true,
+          avatar: true,
+          studentCategory: true, // ✅ INCLUDE CATEGORY
+          subscriptionTier: true,
+          subscriptionStatus: true,
+          subscriptionEndsAt: true,
+          createdAt: true,
+          lastLogin: true,
+          school: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
       });
 
       if (!user) {
@@ -125,6 +152,7 @@ export class AuthController {
       }
 
       console.log('✅ User found, checking password...');
+      console.log('📋 User category:', user.studentCategory); // ✅ DEBUG: Log category
 
       const isPasswordValid = await bcrypt.compare(password, user.password);
 
@@ -164,15 +192,16 @@ export class AuthController {
         { expiresIn: '30d' }
       );
 
-      // Return user without password
+      // ✅ UPDATED: Return user without password (but keep all other fields including studentCategory)
       const { password: _, ...userWithoutPassword } = user;
 
       console.log('✅ Login successful for:', user.email);
+      console.log('✅ Returning studentCategory:', userWithoutPassword.studentCategory); // ✅ DEBUG
 
       res.json({
         success: true,
         data: {
-          user: userWithoutPassword,
+          user: userWithoutPassword, // ✅ Includes studentCategory
           accessToken,
           refreshToken,
         },
@@ -194,9 +223,24 @@ export class AuthController {
     try {
       const userId = (req as any).user.userId;
 
+      // ✅ UPDATED: Use select to ensure studentCategory is included
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: {
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          avatar: true,
+          studentCategory: true, // ✅ INCLUDE CATEGORY
+          subscriptionTier: true,
+          subscriptionStatus: true,
+          subscriptionEndsAt: true,
+          createdAt: true,
+          lastLogin: true,
           school: {
             select: {
               id: true,
@@ -212,11 +256,11 @@ export class AuthController {
         return;
       }
 
-      // Remove password before sending
-      const { password, ...userWithoutPassword } = user;
+      console.log('✅ getCurrentUser - Returning category:', user.studentCategory); // ✅ DEBUG
 
-      res.json({ success: true, data: userWithoutPassword });
+      res.json({ success: true, data: user }); // ✅ User includes studentCategory
     } catch (error) {
+      console.error('getCurrentUser error:', error);
       res.status(500).json({ success: false, error: 'Failed to fetch user' });
     }
   }
