@@ -14,6 +14,8 @@ import adminRoutes from './routes/admin.routes';
 import comprehensiveExamRoutes from './routes/comprehensiveExam.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import usersRoutes from './routes/users.routes';
+import streaksRoutes from './routes/streaks.routes';
+import goalsRoutes from './routes/goals.routes';
 
 
 const app: Application = express();
@@ -45,6 +47,8 @@ app.get('/api/health', (req, res) => {
 });
 
 // Routes
+app.use('/api/streaks', streaksRoutes);      // ✅ NEW
+app.use('/api/goals', goalsRoutes);          // ✅ NEW
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes); 
 app.use('/api/questions', questionsRoutes);
