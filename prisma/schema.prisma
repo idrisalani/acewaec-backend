@@ -192,6 +192,44 @@ model PerformanceAnalytics {
   @@map("performance_analytics")
 }
 
+enum GoalType {
+  ACCURACY
+  SPEED
+  COMPLETION
+  SUBJECT_MASTERY
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+  PAUSED
+}
+
+model Goal {
+  id            String        @id @default(cuid())
+  userId        String
+  subjectId     String?
+  type          GoalType      @default(ACCURACY)
+  status        GoalStatus    @default(ACTIVE)
+  title         String?       // e.g., "Improve Math Accuracy"
+  description   String?
+  targetValue   Int           // Target accuracy (0-100) or sessions count
+  currentValue  Int           @default(0)
+  // Timeline
+  createdAt     DateTime      @default(now())
+  dueDate       DateTime      // When goal should be completed
+  completedAt   DateTime?
+  // Progress tracking
+  progressHistory Json        @default("[]") // Array of {date, value}
+  // Relations
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject       Subject?      @relation(fields: [subjectId], references: [id])
+  @@index([userId])
+  @@index([status])
+  @@map("goals")
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -233,6 +271,7 @@ model User {
   paymentTransactions  PaymentTransaction[]
   comprehensiveExams   ComprehensiveExam[]
   performanceAnalytics PerformanceAnalytics[]
+  goals                Goal[] 
   
   @@map("users")
 }
@@ -324,6 +363,7 @@ model Subject {
   subjectResults SubjectResult[]
   performanceAnalytics PerformanceAnalytics[]
   examDays       ExamDay[]
+  goals          Goal[] 
   
   @@map("subjects")
 }
