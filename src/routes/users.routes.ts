@@ -1,5 +1,5 @@
 // backend/src/routes/users.routes.ts
-// ✅ CORRECTED - Uses only existing Prisma User model fields
+// ✅ ENHANCED - Added premium-status endpoint
 
 import express, { Response, RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
@@ -154,8 +154,6 @@ router.get(
           email: true,
           avatar: true,
           phone: true,
-          // NOTE: Removed school and grade as they don't exist in Prisma
-          // TODO: Add these fields to your Prisma schema if needed
         },
       });
 
@@ -184,6 +182,79 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to fetch student info',
+      });
+    }
+  }) as RequestHandler
+);
+
+/**
+ * GET /users/premium-status
+ * ✅ NEW - Check user's premium subscription status
+ * Accessible by: All authenticated users
+ */
+router.get(
+  '/premium-status',
+  authMiddleware,
+  (async (req: AuthRequest, res: Response) => {
+    try {
+      if (!req.userId) {
+        res.status(401).json({
+          success: false,
+          error: 'User not authenticated',
+        });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.userId },
+        select: {
+          id: true,
+          subscriptionTier: true,
+          subscriptionStatus: true,
+          subscriptionEndsAt: true,
+          stripeCustomerId: true,
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+        return;
+      }
+
+      // Check if subscription is active and not expired
+      const now = new Date();
+      const isPremium =
+        (user.subscriptionTier === 'PREMIUM_MONTHLY' || user.subscriptionTier === 'PREMIUM_YEARLY') &&
+        user.subscriptionStatus === 'ACTIVE' &&
+        (!user.subscriptionEndsAt || user.subscriptionEndsAt > now);
+
+      // Calculate days remaining
+      let daysRemaining = 0;
+      if (user.subscriptionEndsAt && user.subscriptionEndsAt > now) {
+        daysRemaining = Math.ceil(
+          (user.subscriptionEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        );
+      }
+
+      res.json({
+        success: true,
+        data: {
+          isPremium,
+          tier: user.subscriptionTier,
+          status: user.subscriptionStatus,
+          expiresAt: user.subscriptionEndsAt,
+          daysRemaining: isPremium ? daysRemaining : 0,
+          hasStripeCustomerId: !!user.stripeCustomerId,
+        },
+      });
+    } catch (error) {
+      console.error('Get premium status error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch premium status',
       });
     }
   }) as RequestHandler
@@ -243,7 +314,7 @@ router.post(
         return;
       }
 
-      if ((!req as any).file) {
+      if (!(req as any).file) {
         res.status(400).json({ success: false, message: 'No file uploaded' });
         return;
       }
@@ -541,7 +612,7 @@ router.put(
       const { userId } = req.params;
       const { role } = req.body;
 
-      if (!['student', 'teacher', 'admin'].includes(role)) {
+      if (!['STUDENT', 'TEACHER', 'ADMIN', 'SCHOOL_ADMIN', 'SUPER_ADMIN'].includes(role)) {
         res.status(400).json({ success: false, error: 'Invalid role' });
         return;
       }
