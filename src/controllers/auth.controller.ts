@@ -42,7 +42,7 @@ export class AuthController {
 
       // When using CLOUDINARY (for production/Vercel):
       // The CloudinaryStorage middleware automatically stores the URL in req.file.path
-      const avatar = req.file ? req.file.path : null;  // ✅ Cloudinary URL
+      // const avatar = req.file ? req.file.path : null;  // ✅ Cloudinary URL
 
       // Create user
       const user = await prisma.user.create({
