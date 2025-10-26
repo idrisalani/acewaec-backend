@@ -766,4 +766,52 @@ export class PracticeController {
       res.status(500).json({ success: false, error: message });
     }
   }
+
+  static async getUserSessions(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+
+      // Get all sessions for this user, ordered by most recent first
+      const sessions = await prisma.practiceSession.findMany({
+        where: { userId },
+        include: {
+          practiceAnswers: {
+            select: {
+              isCorrect: true,
+              questionId: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'  // ✅ Most recent first
+        },
+        take: 20  // Limit to 20 most recent
+      });
+
+      // Format sessions with stats
+      const formattedSessions = sessions.map(session => ({
+        id: session.id,
+        name: session.name,
+        score: Number(session.score || 0),
+        date: session.completedAt || session.createdAt,
+        correct: session.correctAnswers || 0,
+        questions: session.totalQuestions,
+        status: session.status,
+        completedAt: session.completedAt,
+        duration: session.duration,
+        startedAt: session.startedAt
+      }));
+
+      res.json({
+        success: true,
+        data: formattedSessions
+      });
+    } catch (error: any) {
+      console.error('Get user sessions error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get sessions'
+      });
+    }
+  }
 }

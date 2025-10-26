@@ -16,18 +16,21 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed:questions": "ts-node prisma/seeders/questions.seeder.ts",
-    "seed:subjects": "ts-node prisma/seeders/subjects.seeder.ts",
+    "seed:questions": "ts-node src/seeders/questions_seeder.ts",
+    "seed:subjects": "ts-node src/seeders/subjects_seeder.ts",
     "seed:all": "npm run seed:subjects && npm run seed:questions",
-    "seed": "ts-node prisma/seeders/seed.ts"
+    "seed": "ts-node src/seeders/seed.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {
-    "seed": "tsx prisma/seeders/seed.ts"
+    "seed": "ts-node src/seeders/seed.ts"
   },
   "keywords": [
     "waec",
     "education",
-    "api"
+    "api",
+    "practice",
+    "cbt"
   ],
   "author": "",
   "license": "MIT",

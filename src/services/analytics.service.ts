@@ -321,4 +321,42 @@ export class AnalyticsService {
     const response = await apiClient.get('/analytics/weak-areas');
     return response.data.data;
   }
+
+  static async getDashboard() {
+    try {
+      // Fetch recent sessions
+      const sessionsResponse = await api.get('/practice/user/sessions');
+      const sessions = sessionsResponse.data.data || [];
+
+      // Calculate stats from sessions
+      const stats = {
+        overview: {
+          totalSessions: sessions.length,
+          overallAccuracy: sessions.length > 0
+            ? (sessions.reduce((sum: number, s: any) => sum + (s.score || 0), 0) / sessions.length)
+            : 0,
+          totalStudyTime: sessions.reduce((sum: number, s: any) => sum + (s.duration || 0), 0),
+          averageSessionScore: sessions.length > 0
+            ? (sessions.reduce((sum: number, s: any) => sum + (s.score || 0), 0) / sessions.length)
+            : 0
+        },
+        recentSessions: sessions.slice(0, 5)  // Last 5 sessions
+      };
+
+      return { stats };
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+      return {
+        stats: {
+          overview: {
+            totalSessions: 0,
+            overallAccuracy: 0,
+            totalStudyTime: 0,
+            averageSessionScore: 0
+          },
+          recentSessions: []
+        }
+      };
+    }
+  }
 }

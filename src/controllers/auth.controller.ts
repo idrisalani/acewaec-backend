@@ -33,8 +33,16 @@ export class AuthController {
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Get avatar path if uploaded - THIS HANDLES THE FILE
-      const avatar = req.file ? `/uploads/profiles/${req.file.filename}` : null;
+      // // Get avatar path if uploaded - THIS HANDLES THE FILE
+      // const avatar = req.file ? `/uploads/profiles/${req.file.filename}` : null;
+
+      const avatar = req.file
+        ? req.file.path || `/uploads/profiles/${req.file.filename}`
+        : null;
+
+      // When using CLOUDINARY (for production/Vercel):
+      // The CloudinaryStorage middleware automatically stores the URL in req.file.path
+      const avatar = req.file ? req.file.path : null;  // ✅ Cloudinary URL
 
       // Create user
       const user = await prisma.user.create({
@@ -95,6 +103,14 @@ export class AuthController {
       console.error('Registration error:', error);
       res.status(500).json({ success: false, error: 'Registration failed' });
     }
+
+    console.log('📸 Avatar URL saved:', {
+      filename: req.file?.filename,
+      path: req.file?.path,
+      destination: req.file?.destination,
+      finalUrl: avatar,
+      isCloudinary: avatar?.includes('cloudinary')
+    });
   }
 
   static async login(req: Request, res: Response) {

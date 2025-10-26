@@ -176,7 +176,7 @@ export const uploadProfilePicture = async (req: AuthRequest, res: Response) => {
 
     const file = (req as any).file;
     let pictureUrl = file.secure_url || file.path;
-
+    
     const user = await prisma.user.update({
       where: { id: req.userId },
       data: { avatar: pictureUrl },

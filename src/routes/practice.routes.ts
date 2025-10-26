@@ -198,6 +198,17 @@ router.get(
   asyncHandler(PracticeController.getResults)
 );
 
+/**
+ * GET /practice/user/sessions
+ * Get all practice sessions for current user
+ * AUTH required
+ */
+router.get(
+  '/user/sessions',
+  auth,
+  asyncHandler(PracticeController.getUserSessions)  // ✅ NEW METHOD
+);
+
 // ============================================================================
 // Export Router
 // ============================================================================
