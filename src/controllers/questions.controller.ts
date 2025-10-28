@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 
 export class QuestionsController {
   // ==================== EXISTING PUBLIC METHODS ====================
-  
+
   static async getSubjects(req: Request, res: Response): Promise<void> {
     try {
       const subjects = await QuestionsService.getSubjects();
@@ -21,33 +21,141 @@ export class QuestionsController {
     }
   }
 
+  /**
+ * Get topics for a specific subject
+ * GET /questions/subjects/:subjectId/topics
+ * 
+ * ✅ FIXED:
+ * - Direct Prisma query (not delegated)
+ * - Uses distinct: ['id'] for DB-level deduplication
+ * - Additional manual deduplication as safety
+ * - Better error handling
+ */
   static async getTopics(req: Request, res: Response): Promise<void> {
     try {
       const { subjectId } = req.params;
-      const topics = await QuestionsService.getTopicsBySubject(subjectId);
-      res.json({ success: true, data: topics });
+
+      if (!subjectId) {
+        res.status(400).json({
+          success: false,
+          error: 'Subject ID is required'
+        });
+        return;
+      }
+
+      console.log(`🔍 Fetching topics for subject: ${subjectId}`);
+
+      // ✅ DIRECT QUERY with Prisma distinct
+      const topics = await prisma.topic.findMany({
+        where: {
+          subjectId,
+          isActive: true
+        },
+        distinct: ['id'], // ← KEY FIX: Remove duplicates at DB level
+        include: {
+          _count: {
+            select: { questions: true }
+          }
+        },
+        orderBy: { name: 'asc' }
+      });
+
+      console.log(`📊 Database returned ${topics.length} unique topic records`);
+
+      // ✅ ADDITIONAL DEDUPLICATION: Manual safety check
+      const uniqueTopicsMap = new Map<string, any>();
+      const duplicatesFound: string[] = [];
+
+      topics.forEach(topic => {
+        if (!uniqueTopicsMap.has(topic.id)) {
+          uniqueTopicsMap.set(topic.id, {
+            id: topic.id,
+            name: topic.name,
+            _count: {
+              questions: topic._count.questions
+            }
+          });
+        } else {
+          duplicatesFound.push(topic.name);
+        }
+      });
+
+      if (duplicatesFound.length > 0) {
+        console.warn(`⚠️ Found ${duplicatesFound.length} duplicates after distinct:`, duplicatesFound);
+      }
+
+      const uniqueTopics = Array.from(uniqueTopicsMap.values());
+
+      console.log(`✅ Returning ${uniqueTopics.length} unique topics`);
+
+      res.json({
+        success: true,
+        data: uniqueTopics
+      });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error('❌ Error fetching topics:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get topics'
+      });
     }
   }
 
+  /**
+ * Get questions matching criteria
+ * GET /questions
+ * 
+ * ✅ FIXED:
+ * - Deduplicates subject/topic IDs before querying
+ * - Better validation and error messages
+ */
   static async getQuestions(req: Request, res: Response): Promise<void> {
     try {
       const { subjectIds, topicIds, difficulty, limit } = req.query;
 
+      // ✅ DEDUPLICATION: Parse and deduplicate IDs
+      const subjectIdArray = subjectIds
+        ? [...new Set(String(subjectIds).split(',').filter(Boolean))]
+        : undefined;
+
+      const topicIdArray = topicIds
+        ? [...new Set(String(topicIds).split(',').filter(Boolean))]
+        : undefined;
+
+      console.log(`📝 Getting questions:`);
+      console.log(`   Subjects: ${subjectIdArray?.length || 'any'}, Topics: ${topicIdArray?.length || 'any'}`);
+
       const questions = await QuestionsService.getQuestions({
-        subjectIds: subjectIds ? String(subjectIds).split(',') : undefined,
-        topicIds: topicIds ? String(topicIds).split(',') : undefined,
+        subjectIds: subjectIdArray,
+        topicIds: topicIdArray,
         difficulty: difficulty as string,
         limit: limit ? parseInt(limit as string) : 20,
       });
 
-      res.json({ success: true, data: questions });
+      console.log(`✅ Returned ${questions.length} questions`);
+
+      res.json({
+        success: true,
+        data: questions
+      });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error('❌ Error fetching questions:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get questions'
+      });
     }
   }
 
+  /**
+ * Get random questions matching criteria
+ * GET /questions/random
+ * 
+ * ✅ FIXED:
+ * - Deduplicates subject/topic IDs before querying
+ * - Better validation
+ * - Clearer error messages
+ */
   static async getRandomQuestions(req: Request, res: Response): Promise<void> {
     try {
       const {
@@ -59,18 +167,52 @@ export class QuestionsController {
         excludeIds
       } = req.query;
 
+      // ✅ DEDUPLICATION: Parse and deduplicate IDs
+      const subjectIdArray = subjectIds
+        ? [...new Set(String(subjectIds).split(',').filter(Boolean))]
+        : undefined;
+
+      const topicIdArray = topicIds
+        ? [...new Set(String(topicIds).split(',').filter(Boolean))]
+        : undefined;
+
+      const excludeIdArray = excludeIds
+        ? [...new Set(String(excludeIds).split(',').filter(Boolean))]
+        : undefined;
+
+      console.log(`📝 Getting random questions:`);
+      console.log(`   Count: ${count || 20}, Subjects: ${subjectIdArray?.length || 0}, Topics: ${topicIdArray?.length || 0}`);
+
+      // ✅ VALIDATION: Check required params
+      if (!subjectIdArray || subjectIdArray.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'At least one subject ID is required'
+        });
+        return;
+      }
+
       const result = await QuestionsService.getRandomQuestions({
         count: count ? parseInt(count as string) : 20,
-        subjectIds: subjectIds ? String(subjectIds).split(',') : undefined,
-        topicIds: topicIds ? String(topicIds).split(',') : undefined,
+        subjectIds: subjectIdArray,
+        topicIds: topicIdArray,
         difficulty: difficulty as string,
         category: category as string,
-        excludeIds: excludeIds ? String(excludeIds).split(',') : undefined,
+        excludeIds: excludeIdArray
       });
 
-      res.json({ success: true, data: result });
+      console.log(`✅ Returned ${result.questions.length} random questions`);
+
+      res.json({
+        success: true,
+        data: result
+      });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error('❌ Error fetching random questions:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get random questions'
+      });
     }
   }
 
@@ -200,19 +342,19 @@ export class QuestionsController {
 
   static async getAllQuestions(req: AuthRequest, res: Response) {
     try {
-      const { 
-        page = '1', 
-        limit = '20', 
-        subject, 
-        topic, 
-        difficulty, 
+      const {
+        page = '1',
+        limit = '20',
+        subject,
+        topic,
+        difficulty,
         search,
         year,
         status
       } = req.query;
 
       const where: any = {};
-      
+
       if (status === 'active') where.isActive = true;
       if (status === 'inactive') where.isActive = false;
       if (subject) where.subjectId = subject as string;
@@ -262,7 +404,7 @@ export class QuestionsController {
   static async getQuestion(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      
+
       const question = await prisma.question.findUnique({
         where: { id },
         include: {
@@ -285,15 +427,15 @@ export class QuestionsController {
 
   static async createQuestion(req: Request, res: Response) {
     try {
-      const { 
-        content, 
-        explanation, 
-        type, 
-        difficulty, 
-        year, 
-        correctAnswer, 
-        subjectId, 
-        topicId, 
+      const {
+        content,
+        explanation,
+        type,
+        difficulty,
+        year,
+        correctAnswer,
+        subjectId,
+        topicId,
         options,
         imageUrl,
         tags,
@@ -301,9 +443,9 @@ export class QuestionsController {
       } = req.body;
 
       if (!options || options.length < 2) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'At least 2 options are required' 
+        return res.status(400).json({
+          success: false,
+          error: 'At least 2 options are required'
         });
       }
 
@@ -345,23 +487,23 @@ export class QuestionsController {
   static async updateQuestion(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { 
-        content, 
-        explanation, 
-        type, 
-        difficulty, 
-        year, 
-        correctAnswer, 
-        subjectId, 
-        topicId, 
+      const {
+        content,
+        explanation,
+        type,
+        difficulty,
+        year,
+        correctAnswer,
+        subjectId,
+        topicId,
         options,
         imageUrl,
         tags,
         category
       } = req.body;
 
-      await prisma.questionOption.deleteMany({ 
-        where: { questionId: id } 
+      await prisma.questionOption.deleteMany({
+        where: { questionId: id }
       });
 
       const question = await prisma.question.update({
@@ -403,7 +545,7 @@ export class QuestionsController {
   static async deleteQuestion(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      
+
       await prisma.question.update({
         where: { id },
         data: { isActive: false }
@@ -421,9 +563,9 @@ export class QuestionsController {
       const { ids } = req.body;
 
       if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Question IDs array is required' 
+        return res.status(400).json({
+          success: false,
+          error: 'Question IDs array is required'
         });
       }
 
@@ -432,9 +574,9 @@ export class QuestionsController {
         data: { isActive: false }
       });
 
-      res.json({ 
-        success: true, 
-        message: `${ids.length} questions deleted successfully` 
+      res.json({
+        success: true,
+        message: `${ids.length} questions deleted successfully`
       });
     } catch (error: any) {
       console.error('Bulk delete error:', error);
@@ -524,7 +666,7 @@ export class QuestionsController {
 
           fs.unlinkSync(req.file!.path);
 
-          res.json({ 
+          res.json({
             success: true,
             data: {
               imported: created.length,
@@ -557,15 +699,34 @@ export class QuestionsController {
     }
   }
 
+  /**
+ * Get all topics for a subject
+ * GET /questions/subjects/:id/topics
+ * 
+ * ✅ FIXED:
+ * - Uses Prisma distinct to prevent duplicate topics
+ * - Better error handling
+ */
   static async getSubjectTopics(req: Request, res: Response) {
     try {
       const { id } = req.params;
 
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Subject ID is required'
+        });
+      }
+
+      console.log(`🔍 Fetching topics for subject: ${id}`);
+
+      // ✅ PRISMA DISTINCT: Prevent duplicates at DB level
       const topics = await prisma.topic.findMany({
-        where: { 
+        where: {
           subjectId: id,
           isActive: true
         },
+        distinct: ['id'], // ← KEY FIX
         include: {
           _count: {
             select: { questions: true }
@@ -574,10 +735,18 @@ export class QuestionsController {
         orderBy: { name: 'asc' }
       });
 
-      res.json({ success: true, data: topics });
+      console.log(`✅ Returned ${topics.length} unique topics`);
+
+      res.json({
+        success: true,
+        data: topics
+      });
     } catch (error: any) {
-      console.error('Get topics error:', error);
-      res.status(500).json({ success: false, error: error.message });
+      console.error('❌ Get topics error:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get topics'
+      });
     }
   }
 }

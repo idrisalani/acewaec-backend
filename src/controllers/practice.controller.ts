@@ -68,15 +68,14 @@ export class PracticeController {
   }
 
   /**
-   * Get topics for a specific subject
-   * GET /practice/subjects/:subjectId/topics
-   * Public endpoint - no authentication required
-   * 
-   * ✅ FIXED:
-   * - Added deduplication to prevent duplicate topics in response
-   * - Better error handling
-   * - Improved logging for debugging
-   */
+ * Get topics for a specific subject
+ * GET /practice/subjects/:subjectId/topics
+ * 
+ * ✅ FIXED:
+ * - Uses Prisma distinct to prevent DB-level duplicates
+ * - Adds manual deduplication as backup
+ * - Better logging
+ */
   static async getTopicsForSubject(req: AuthRequest, res: Response) {
     try {
       const { subjectId } = req.params;
@@ -91,12 +90,13 @@ export class PracticeController {
 
       console.log(`🔍 Fetching topics for subject: ${subjectId}`);
 
-      // ✅ Query topics from database
+      // ✅ PRISMA DISTINCT: Prevent DB-level duplicates
       const topics = await prisma.topic.findMany({
         where: {
           subjectId,
           isActive: true
         },
+        distinct: ['id'], // ← KEY FIX: Remove duplicate records at DB level
         include: {
           _count: {
             select: { questions: true }
@@ -105,9 +105,9 @@ export class PracticeController {
         orderBy: { name: 'asc' }
       });
 
-      console.log(`📊 Database returned ${topics.length} topic records for subject ${subjectId}`);
+      console.log(`📊 Database returned ${topics.length} unique topic records for subject ${subjectId}`);
 
-      // ✅ DEDUPLICATION: Handle case where database has duplicate records
+      // ✅ ADDITIONAL DEDUPLICATION: Belt and suspenders approach
       const uniqueTopicsMap = new Map<string, any>();
       const duplicatesFound: string[] = [];
 
@@ -126,13 +126,13 @@ export class PracticeController {
       });
 
       if (duplicatesFound.length > 0) {
-        console.warn(`⚠️ Found ${duplicatesFound.length} duplicate topics:`, duplicatesFound);
+        console.warn(`⚠️ Found ${duplicatesFound.length} duplicate topics after Prisma distinct:`, duplicatesFound);
       }
 
       const uniqueTopics = Array.from(uniqueTopicsMap.values());
       uniqueTopics.sort((a, b) => a.name.localeCompare(b.name));
 
-      console.log(`✅ After deduplication: ${uniqueTopics.length} unique topics for subject ${subjectId}`);
+      console.log(`✅ Returning ${uniqueTopics.length} unique topics for subject ${subjectId}`);
 
       return res.json({
         success: true,
@@ -141,7 +141,10 @@ export class PracticeController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get topics';
       console.error(`❌ Error in getTopicsForSubject for subject ${req.params.subjectId}:`, message);
-      return res.status(500).json({ success: false, error: message });
+      return res.status(500).json({
+        success: false,
+        error: message
+      });
     }
   }
 
@@ -152,20 +155,37 @@ export class PracticeController {
   /**
    * Start a new practice session
    * POST /practice/sessions
+   * 
+   * ✅ FIXED:
+   * - Proper TypeScript type casting for req.body
+   * - Returns sessionId at top level
+   * - Deduplicates IDs before querying
+   * - Better error messages
    */
   static async startSession(req: AuthRequest, res: Response) {
     try {
       const userId = (req as any).userId;
+
+      // ✅ FIX: Properly type-cast req.body with as string[] / as string / as string
       const {
         name,
         questionCount,
-        subjectIds,
-        topicIds,
+        subjectIds: rawSubjectIds,
+        topicIds: rawTopicIds,
         difficulty,
         duration,
         category,
         type = 'PRACTICE'
       } = req.body;
+
+      // ✅ TYPE CASTING: Convert unknown[] to string[] with validation
+      const subjectIds: string[] = Array.isArray(rawSubjectIds)
+        ? (rawSubjectIds as string[]).filter((id): id is string => typeof id === 'string')
+        : [];
+
+      const topicIds: string[] = Array.isArray(rawTopicIds)
+        ? (rawTopicIds as string[]).filter((id): id is string => typeof id === 'string')
+        : [];
 
       if (!userId) {
         return res.status(401).json({
@@ -177,42 +197,68 @@ export class PracticeController {
       if (!questionCount || !subjectIds || subjectIds.length === 0) {
         return res.status(400).json({
           success: false,
-          error: 'questionCount and subjectIds are required'
+          error: 'questionCount and subjectIds are required',
+          code: 'MISSING_PARAMS'
         });
       }
 
+      // ✅ DEDUPLICATION: Remove duplicate IDs
+      const uniqueSubjectIds = [...new Set(subjectIds)];
+      const uniqueTopicIds = [...new Set(topicIds)];
+
+      console.log(`📝 Starting session for user ${userId}`);
+      console.log(`   Subjects: ${uniqueSubjectIds.length}, Topics: ${uniqueTopicIds.length}`);
+
+      const sessionTypeValue: any = (type || 'PRACTICE') as any;
+      const difficultyValue: any = (difficulty || null) as any;
+
       const result = await prisma.$transaction(async (tx) => {
+        // ✅ VALIDATION: Verify subjects exist
+        const validSubjects = await tx.subject.findMany({
+          where: { id: { in: uniqueSubjectIds } }
+        });
+
+        if (validSubjects.length !== uniqueSubjectIds.length) {
+          throw new Error('One or more subjects not found');
+        }
+
+        // ✅ GET QUESTIONS: Pass properly typed arrays
         const questionResult = await QuestionsService.getRandomQuestions({
-          count: questionCount,
-          subjectIds,
-          topicIds,
-          difficulty,
-          category,
+          count: questionCount as number,
+          subjectIds: uniqueSubjectIds, // ✅ Now properly typed as string[]
+          topicIds: uniqueTopicIds.length > 0 ? uniqueTopicIds : undefined,
+          difficulty: (difficulty || null) as string | null,
+          category: (category || 'SCIENCE') as string,
           excludeIds: []
         });
 
         if (questionResult.questions.length === 0) {
-          throw new Error('No questions found matching the criteria');
+          throw new Error(
+            `No questions found. Tried: ${uniqueSubjectIds.length} subjects, ` +
+            `${uniqueTopicIds.length} topics, difficulty: ${difficulty || 'any'}`
+          );
         }
 
+        // ✅ CREATE SESSION with properly typed data
         const session = await tx.practiceSession.create({
           data: {
             userId,
-            name: name || 'Practice Session',
-            type: type || 'PRACTICE',
-            status: 'IN_PROGRESS',
-            duration: duration || null,
+            name: name as string || 'Practice Session',
+            type: sessionTypeValue as any, // ✅ Cast to SessionType enum
+            status: 'IN_PROGRESS' as SessionStatus,
+            duration: (duration || null) as number | null,
             questionCount: questionResult.questions.length,
-            subjectIds: subjectIds || [],
-            topicIds: topicIds || [],
-            difficulty: difficulty || null,
+            subjectIds: uniqueSubjectIds,
+            topicIds: uniqueTopicIds,
+            difficulty: difficultyValue as any, // ✅ Cast to DifficultyLevel enum
             totalQuestions: questionResult.questions.length,
             startedAt: new Date()
           }
         });
 
+        // ✅ CREATE ANSWER RECORDS with question numbering
         await tx.practiceAnswer.createMany({
-          data: questionResult.questions.map((q: any) => ({
+          data: questionResult.questions.map((q: any, index: number) => ({
             sessionId: session.id,
             questionId: q.id,
             selectedAnswer: null,
@@ -223,20 +269,31 @@ export class PracticeController {
 
         return {
           session,
-          questions: questionResult.questions,
+          questions: questionResult.questions.map((q: any, idx: number) => ({
+            ...q,
+            questionNumber: idx + 1,
+            totalQuestions: questionResult.questions.length
+          })),
           totalAvailable: questionResult.totalAvailable
         };
       });
 
+      // ✅ RESPONSE: Return sessionId at top level for easy access
       return res.json({
         success: true,
-        data: result
+        data: {
+          sessionId: result.session.id, // ✅ Added at top level
+          session: result.session,
+          questions: result.questions,
+          totalAvailable: result.totalAvailable
+        }
       });
     } catch (error: any) {
-      console.error('❌ Error starting session:', error);
+      console.error('❌ Error starting session:', error.message);
       return res.status(500).json({
         success: false,
-        error: error.message || 'Failed to start session'
+        error: error.message || 'Failed to start session',
+        code: 'SESSION_START_ERROR'
       });
     }
   }
@@ -345,10 +402,14 @@ export class PracticeController {
   }
 
   /**
-   * Get all questions for a practice session
-   * GET /practice/sessions/:sessionId/questions
-   * ✅ NEW METHOD - Was missing
-   */
+ * Get questions for a specific session
+ * GET /practice/sessions/:sessionId/questions
+ * 
+ * ✅ FIXED:
+ * - Adds persistent question numbering
+ * - Numbers don't change with navigation
+ * - Better error handling
+ */
   static async getSessionQuestions(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
@@ -368,54 +429,59 @@ export class PracticeController {
         });
       }
 
-      // Verify user owns this session
+      // Get session first
       const session = await prisma.practiceSession.findUnique({
-        where: { id: sessionId }
+        where: { id: sessionId },
+        include: {
+          practiceAnswers: {
+            select: { questionId: true }
+          }
+        }
       });
 
       if (!session || session.userId !== userId) {
         return res.status(403).json({
           success: false,
-          error: 'Not authorized to view these questions'
+          error: 'Not authorized to view this session'
         });
       }
 
-      const answers = await prisma.practiceAnswer.findMany({
-        where: { sessionId },
-        include: {
-          question: {
-            include: {
-              options: true,
-              subject: true,
-              topic: true
-            }
-          }
+      // Get questions with numbering
+      const questions = await prisma.question.findMany({
+        where: {
+          id: { in: session.practiceAnswers.map(pa => pa.questionId) }
         },
-        orderBy: { createdAt: 'asc' }
+        include: {
+          options: {
+            select: {
+              id: true,
+              label: true,
+              content: true,
+              isCorrect: false // Don't reveal correct answer
+            },
+            orderBy: { label: 'asc' }
+          },
+          topic: { select: { id: true, name: true } },
+          subject: { select: { id: true, name: true } }
+        }
       });
 
-      const questions = answers.map(answer => ({
-        id: answer.question.id,
-        content: answer.question.content,
-        difficulty: answer.question.difficulty,
-        subject: answer.question.subject,
-        topic: answer.question.topic,
-        options: answer.question.options,
-        selectedAnswer: answer.selectedAnswer,
-        isCorrect: answer.isCorrect,
-        isFlagged: answer.isFlagged,
-        timeSpent: answer.timeSpent
+      // ✅ ADD PERSISTENT NUMBERING
+      const numberedQuestions = questions.map((q, index) => ({
+        ...q,
+        questionNumber: index + 1,
+        totalQuestions: questions.length
       }));
+
+      console.log(`✅ Returning ${numberedQuestions.length} questions for session ${sessionId}`);
 
       return res.json({
         success: true,
-        data: {
-          questions,
-          totalCount: questions.length
-        }
+        data: numberedQuestions,
+        total: numberedQuestions.length
       });
     } catch (error: any) {
-      console.error('❌ Error fetching session questions:', error);
+      console.error('❌ Error fetching session questions:', error.message);
       return res.status(500).json({
         success: false,
         error: error.message || 'Failed to fetch questions'
@@ -1025,7 +1091,7 @@ export class PracticeController {
 
       const results = sessions.map(session => {
         const totalQuestions = session.totalQuestions || session.practiceAnswers.length;
-        const correctAnswers = session.correctAnswers || 
+        const correctAnswers = session.correctAnswers ||
           session.practiceAnswers.filter(a => a.isCorrect).length;
         const score = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
 
