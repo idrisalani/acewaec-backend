@@ -1,9 +1,10 @@
 // backend/src/controllers/user.controller.ts
-// ✅ CORRECTED - Removes missing module imports, uses only what exists
+// ✅ CORRECTED - Fixes avatar URL duplication issue
 
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../types/index';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -161,6 +162,11 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 /**
  * Upload profile picture
  * POST /users/profile/picture
+ * 
+ * ✅ FIXED: Returns correct relative URL instead of absolute path
+ * 
+ * Before: /home/claude/uploads/profiles/profile-1760974143-721951875.jpg
+ * After:  uploads/profiles/profile-1760974143-721951875.jpg
  */
 export const uploadProfilePicture = async (req: AuthRequest, res: Response) => {
   try {
@@ -169,14 +175,35 @@ export const uploadProfilePicture = async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    if ((!req as any).file) {
+    if (!(req as any).file) {
       res.status(400).json({ success: false, message: 'No file uploaded' });
       return;
     }
 
     const file = (req as any).file;
-    let pictureUrl = file.secure_url || file.path;
     
+    // ✅ FIXED: Convert absolute path to relative URL
+    let pictureUrl: string;
+    
+    if (file.secure_url) {
+      // Cloudinary URL - use as-is (production)
+      pictureUrl = file.secure_url;
+      console.log('✅ Using Cloudinary URL:', pictureUrl);
+    } else if (file.path) {
+      // Local storage - convert absolute path to relative URL (development)
+      // Input:  /home/claude/uploads/profiles/profile-1760974143-721951875.jpg
+      // Output: uploads/profiles/profile-1760974143-721951875.jpg
+      pictureUrl = file.path
+        .replace(process.cwd(), '')           // Remove project root
+        .replace(/\\/g, '/')                  // Convert backslashes (Windows)
+        .replace(/^\//, '');                  // Remove leading slash
+      
+      console.log('✅ Converted to relative URL:', pictureUrl);
+    } else {
+      // Fallback
+      pictureUrl = file.filename || 'uploads/profiles/unknown';
+    }
+
     const user = await prisma.user.update({
       where: { id: req.userId },
       data: { avatar: pictureUrl },
@@ -187,12 +214,14 @@ export const uploadProfilePicture = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    console.log('✅ Avatar URL saved to database:', user.avatar);
+
     res.json({
       success: true,
       message: 'Profile picture uploaded successfully',
       data: {
         avatar: user.avatar,
-        secure_url: file.secure_url || pictureUrl,
+        secure_url: pictureUrl,
         filename: file.originalname,
         size: file.size,
       },
