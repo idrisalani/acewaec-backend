@@ -1,8 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma - UPDATED WITH FLAGGED QUESTIONS MODEL
 
 generator client {
   provider = "prisma-client-js"
@@ -271,7 +267,8 @@ model User {
   paymentTransactions  PaymentTransaction[]
   comprehensiveExams   ComprehensiveExam[]
   performanceAnalytics PerformanceAnalytics[]
-  goals                Goal[] 
+  goals                Goal[]
+  flaggedQuestions     FlaggedQuestion[]
   
   @@map("users")
 }
@@ -409,6 +406,7 @@ model Question {
   topic           Topic?            @relation(fields: [topicId], references: [id])
   options         QuestionOption[]
   practiceAnswers PracticeAnswer[]
+  flaggedQuestions FlaggedQuestion[]
 
   @@index([category])
   @@index([subjectId])
@@ -483,7 +481,8 @@ model PracticeSession {
   // Relations
   user            User             @relation(fields: [userId], references: [id])
   practiceAnswers PracticeAnswer[]
-  examDay     ExamDay?
+  flaggedQuestions FlaggedQuestion[]
+  examDay         ExamDay?
   
   @@map("practice_sessions")
 }
@@ -516,6 +515,25 @@ model PracticeAnswer {
   
   @@unique([sessionId, questionId])
   @@map("PracticeAnswer")
+}
+
+// ✅ NEW: FlaggedQuestion model to track flagged questions
+model FlaggedQuestion {
+  id          String   @id @default(cuid())
+  sessionId   String
+  userId      String
+  questionId  String
+  flaggedAt   DateTime @default(now())
+  
+  // Relations
+  session     PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question    Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@unique([sessionId, userId, questionId])
+  @@index([userId])
+  @@index([sessionId])
+  @@map("flagged_questions")
 }
 
 // ========== TUTORING MARKETPLACE ==========
