@@ -3,6 +3,8 @@
  * ✅ COMPLETE FIXED VERSION - All TypeScript errors resolved
  * 
  * Fixed issues:
+ * - FIXED: Removed unnecessary 'next' parameter from all controller methods
+ * - FIXED: Method signatures now match route handler calls (2 params: req, res)
  * - FIXED: Replaced non-existent sessionQuestion with practiceAnswers
  * - FIXED: Added subject and topic relations to question query
  * - FIXED: Added options relation to question query
@@ -15,7 +17,7 @@
  * - Better error handling and logging
  */
 
-import { Response, NextFunction } from 'express';
+import { Response } from 'express';
 import { AuthRequest } from '../types/index';
 import { PrismaClient, SessionStatus } from '@prisma/client';
 import { QuestionsService } from '../services/questions.service';
@@ -72,14 +74,14 @@ export class PracticeController {
   }
 
   /**
- * Get topics for a specific subject
- * GET /practice/subjects/:subjectId/topics
- * 
- * ✅ FIXED:
- * - Uses Prisma distinct to prevent DB-level duplicates
- * - Adds manual deduplication as backup
- * - Better logging
- */
+   * Get topics for a specific subject
+   * GET /practice/subjects/:subjectId/topics
+   * 
+   * ✅ FIXED:
+   * - Uses Prisma distinct to prevent DB-level duplicates
+   * - Adds manual deduplication as backup
+   * - Better logging
+   */
   static async getTopicsForSubject(req: AuthRequest, res: Response) {
     try {
       const { subjectId } = req.params;
@@ -158,6 +160,7 @@ export class PracticeController {
 
   /**
    * ✅ FIXED: Start Practice Session with comprehensive validation
+   * ✅ FIXED: Removed 'next' parameter - not used in this method
    * 
    * Expected Request Body:
    * {
@@ -169,7 +172,7 @@ export class PracticeController {
    *   type?: string                    // Optional: PRACTICE|EXAM|TIMED|UNTIMED
    * }
    */
-  static async startSession(req: AuthRequest, res: Response, next: NextFunction) {
+  static async startSession(req: AuthRequest, res: Response) {
     try {
       // ✅ STEP 1: Validate request has userId
       if (!req.user?.id) {
@@ -416,6 +419,7 @@ export class PracticeController {
   /**
    * Get a specific practice session
    * GET /practice/sessions/:sessionId
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async getSession(req: AuthRequest, res: Response) {
     try {
@@ -466,7 +470,7 @@ export class PracticeController {
   /**
    * Get all practice sessions for current user
    * GET /practice/sessions
-   * ✅ NEW METHOD - Was missing
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async getUserSessions(req: AuthRequest, res: Response) {
     try {
@@ -517,15 +521,15 @@ export class PracticeController {
   }
 
   /**
- * Get questions for a specific session
- * GET /practice/sessions/:sessionId/questions
- * 
- * ✅ FIXED:
- * - Adds persistent question numbering
- * - Numbers don't change with navigation
- * - Better error handling
- * - Includes all required relations
- */
+   * Get questions for a specific session
+   * GET /practice/sessions/:sessionId/questions
+   * ✅ FIXED: Removed 'next' parameter
+   * ✅ FIXED:
+   * - Adds persistent question numbering
+   * - Numbers don't change with navigation
+   * - Better error handling
+   * - Includes all required relations
+   */
   static async getSessionQuestions(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
@@ -609,6 +613,7 @@ export class PracticeController {
   /**
    * Submit single answer
    * POST /practice/sessions/:sessionId/submit-answer
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async submitAnswer(req: AuthRequest, res: Response) {
     try {
@@ -680,6 +685,7 @@ export class PracticeController {
   /**
    * Submit multiple answers (batch)
    * POST /practice/sessions/:sessionId/answers
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async submitAnswers(req: AuthRequest, res: Response) {
     try {
@@ -761,6 +767,7 @@ export class PracticeController {
   /**
    * Toggle flag on a question
    * POST /practice/sessions/:sessionId/toggle-flag
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async toggleFlag(req: AuthRequest, res: Response) {
     try {
@@ -819,6 +826,7 @@ export class PracticeController {
    * Pause a practice session
    * PATCH /practice/sessions/:sessionId/pause
    * POST /practice/sessions/:sessionId/pause (deprecated)
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async pauseSession(req: AuthRequest, res: Response) {
     try {
@@ -875,6 +883,7 @@ export class PracticeController {
    * Resume a paused practice session
    * PATCH /practice/sessions/:sessionId/resume
    * POST /practice/sessions/:sessionId/resume (deprecated)
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async resumeSession(req: AuthRequest, res: Response) {
     try {
@@ -930,6 +939,7 @@ export class PracticeController {
   /**
    * Complete a practice session
    * POST /practice/sessions/:sessionId/complete
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async completeSession(req: AuthRequest, res: Response) {
     try {
@@ -994,6 +1004,7 @@ export class PracticeController {
   /**
    * Get detailed results for a session
    * GET /practice/sessions/:sessionId/results
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async getSessionResults(req: AuthRequest, res: Response) {
     try {
@@ -1097,7 +1108,7 @@ export class PracticeController {
   /**
    * Get detailed answer history for a session
    * GET /practice/sessions/:sessionId/history
-   * ✅ NEW METHOD - Was missing
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async getAnswerHistory(req: AuthRequest, res: Response) {
     try {
@@ -1188,7 +1199,7 @@ export class PracticeController {
   /**
    * Get all results for a user
    * GET /practice/user/results
-   * ✅ NEW METHOD - Was missing (legacy endpoint)
+   * ✅ FIXED: Removed 'next' parameter
    */
   static async getResults(req: AuthRequest, res: Response) {
     try {
