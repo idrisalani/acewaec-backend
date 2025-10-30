@@ -182,7 +182,7 @@ export class PracticeController {
           error: 'Unauthorized: No user ID',
         });
       }
-
+      
       console.log('👤 User ID:', req.user.id);
 
       // ✅ STEP 2: Extract and validate request body
@@ -424,7 +424,8 @@ export class PracticeController {
   static async getSession(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      const userId = (req as any).userId;
+      // const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -432,7 +433,6 @@ export class PracticeController {
           error: 'Not authenticated'
         });
       }
-
       if (!sessionId) {
         return res.status(400).json({
           success: false,
@@ -474,7 +474,8 @@ export class PracticeController {
    */
   static async getUserSessions(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
       const { limit = 10, offset = 0, status } = req.query;
 
       if (!userId) {
@@ -533,7 +534,8 @@ export class PracticeController {
   static async getSessionQuestions(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -831,7 +833,8 @@ export class PracticeController {
   static async pauseSession(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -888,7 +891,8 @@ export class PracticeController {
   static async resumeSession(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -945,7 +949,8 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { timeSpent } = req.body;
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -1009,7 +1014,8 @@ export class PracticeController {
   static async getSessionResults(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -1113,7 +1119,8 @@ export class PracticeController {
   static async getAnswerHistory(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
@@ -1203,7 +1210,8 @@ export class PracticeController {
    */
   static async getResults(req: AuthRequest, res: Response) {
     try {
-      const userId = (req as any).userId;
+      //const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({
