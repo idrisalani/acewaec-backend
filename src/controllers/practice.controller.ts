@@ -182,7 +182,7 @@ export class PracticeController {
           error: 'Unauthorized: No user ID',
         });
       }
-      
+
       console.log('👤 User ID:', req.user.id);
 
       // ✅ STEP 2: Extract and validate request body
@@ -195,7 +195,7 @@ export class PracticeController {
         type = 'PRACTICE'
       } = req.body;
 
-      console.log('📥 Request body received:', {
+      console.log('📥 Request body:', {
         subjectIds,
         topicIds,
         questionCount,
@@ -206,7 +206,6 @@ export class PracticeController {
 
       // ✅ STEP 3: Validate required fields
       if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
-        console.error('❌ Invalid subjectIds:', subjectIds);
         return res.status(400).json({
           success: false,
           error: 'subjectIds must be a non-empty array',
@@ -214,85 +213,40 @@ export class PracticeController {
       }
 
       if (typeof questionCount !== 'number' || questionCount < 1 || questionCount > 100) {
-        console.error('❌ Invalid questionCount:', questionCount);
         return res.status(400).json({
           success: false,
           error: 'questionCount must be between 1 and 100',
         });
       }
 
-      // ✅ STEP 4: Validate optional fields
-      if (Array.isArray(topicIds) && topicIds.length > 0) {
-        if (!topicIds.every(id => typeof id === 'string')) {
-          console.error('❌ Invalid topicIds format');
-          return res.status(400).json({
-            success: false,
-            error: 'All topicIds must be strings',
-          });
-        }
-      }
-
-      if (duration !== undefined) {
-        if (typeof duration !== 'number' || duration < 5 || duration > 480) {
-          console.error('❌ Invalid duration:', duration);
-          return res.status(400).json({
-            success: false,
-            error: 'Duration must be between 5 and 480 minutes',
-          });
-        }
-      }
-
-      if (difficulty && !['EASY', 'MEDIUM', 'HARD', 'ALL'].includes(difficulty)) {
-        console.error('❌ Invalid difficulty:', difficulty);
-        return res.status(400).json({
-          success: false,
-          error: 'Difficulty must be EASY, MEDIUM, HARD, or ALL',
-        });
-      }
-
-      // ✅ STEP 5: Fetch questions from database
+      // ✅ STEP 4: Fetch questions
       console.log('🔍 Fetching questions for subjects:', subjectIds);
 
-      let questionsQuery: any = {
+      const questions = await prisma.question.findMany({
         where: {
-          subjectId: {
-            in: subjectIds,
-          },
+          subjectId: { in: subjectIds },
+          ...(topicIds.length > 0 && { topicId: { in: topicIds } }),
+          ...(difficulty && difficulty !== 'ALL' && { difficulty }),
         },
         take: questionCount,
         include: {
-          subject: true,      // ✅ FIXED: Added subject relation
-          topic: true,        // ✅ FIXED: Added topic relation
-          options: true,      // ✅ FIXED: Added options relation
+          subject: true,
+          topic: true,
+          options: true,
         },
-      };
-
-      // Add topic filter if provided
-      if (topicIds.length > 0) {
-        questionsQuery.where.topicId = {
-          in: topicIds,
-        };
-      }
-
-      // Add difficulty filter if provided
-      if (difficulty && difficulty !== 'ALL') {
-        questionsQuery.where.difficulty = difficulty;
-      }
-
-      const questions = await prisma.question.findMany(questionsQuery);
+      });
 
       console.log(`✅ Found ${questions.length} questions`);
 
       if (questions.length === 0) {
-        console.error('❌ No questions available with given filters');
         return res.status(400).json({
           success: false,
           error: 'No questions available with the selected criteria',
         });
       }
 
-      // ✅ STEP 6: Create practice session in database
-      console.log('💾 Creating practice session in database...');
+      // ✅ STEP 5: Create practice session
+      console.log('💾 Creating practice session...');
 
       const session = await prisma.practiceSession.create({
         data: {
@@ -309,13 +263,12 @@ export class PracticeController {
         },
       });
 
-      console.log('✅ Session created with ID:', session.id);
+      console.log('✅ Session created:', session.id);
 
-      // ✅ STEP 7: Create practice answers (session-question mapping)
-      // ✅ FIXED: Changed from non-existent sessionQuestion to practiceAnswers
+      // ✅ STEP 6: Map questions to session
       console.log('🔗 Mapping questions to session...');
 
-      const practiceAnswers = await Promise.all(
+      await Promise.all(
         questions.map((q) =>
           prisma.practiceAnswer.create({
             data: {
@@ -328,9 +281,9 @@ export class PracticeController {
         )
       );
 
-      console.log(`✅ Mapped ${practiceAnswers.length} questions to session`);
+      console.log(`✅ Mapped ${questions.length} questions`);
 
-      // ✅ STEP 8: Return response with session and questions
+      // ✅ STEP 7: Return response with CORRECT mapping
       const response = {
         success: true,
         data: {
@@ -344,68 +297,51 @@ export class PracticeController {
             duration: session.duration,
             createdAt: session.startedAt,
           },
-          // ✅ FIXED: Now using proper question relations
-          questions: questions.map(q => ({
+          // ✅ FIXED: Correct response mapping
+          questions: questions.map((q, index) => ({
             id: q.id,
             content: q.content,
             imageUrl: q.imageUrl,
             difficulty: q.difficulty,
-            subject: {
-              select: { id: true, name: true, code: true }
-            },
-            topic: {
-              select: { id: true, name: true }
-            },
-            options: {
-              select: {
-                id: true,
-                label: true,
-                content: true,
-                isCorrect: false
-              },
-              orderBy: { label: 'asc' }
-            },
+            subject: q.subject ? {
+              id: q.subject.id,
+              name: q.subject.name,
+              code: q.subject.code
+            } : null,
+            topic: q.topic ? {
+              id: q.topic.id,
+              name: q.topic.name
+            } : null,
+            options: (q.options || [])
+              .sort((a, b) => a.label.localeCompare(b.label))
+              .map(opt => ({
+                id: opt.id,
+                label: opt.label,
+                content: opt.content
+              })),
+            questionNumber: index + 1,
+            totalQuestions: questions.length
           })),
           totalAvailable: questions.length,
         },
       };
 
-      console.log('📤 Sending response to client');
+      console.log('📤 Sending response...');
       return res.status(201).json(response);
 
     } catch (error) {
       console.error('❌ ERROR in startSession:', error);
 
-      // Better error categorization
       if (error instanceof Error) {
-        const errorMessage = error.message;
-
-        // Database errors
-        if (errorMessage.includes('Unique constraint')) {
-          return res.status(400).json({
-            success: false,
-            error: 'Session already exists',
-          });
-        }
-
-        // Validation errors
-        if (errorMessage.includes('validation')) {
-          return res.status(400).json({
-            success: false,
-            error: errorMessage,
-          });
-        }
-
-        // Unknown errors
         console.error('Error details:', {
-          message: errorMessage,
+          message: error.message,
           stack: error.stack,
         });
 
         return res.status(500).json({
           success: false,
-          error: 'Internal server error. Check server logs.',
-          details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+          error: 'Internal server error',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
         });
       }
 
@@ -621,7 +557,8 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { questionId, selectedAnswer } = req.body;
-      const userId = (req as any).userId;
+      // const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ success: false, error: 'Not authenticated' });
@@ -693,7 +630,8 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { answers } = req.body;
-      const userId = (req as any).userId;
+      // const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ success: false, error: 'Not authenticated' });
@@ -775,7 +713,8 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { questionId, isFlagged } = req.body;
-      const userId = (req as any).userId;
+      // const userId = (req as any).userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ success: false, error: 'Not authenticated' });
