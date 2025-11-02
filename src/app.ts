@@ -35,14 +35,34 @@ app.use(helmet());
  * CORS CONFIGURATION
  * ============================================================================
  */
+// ✅ CORRECT CORS Configuration
+const allowedOrigins = [
+   process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:3000',           
+  'https://acewaec-frontend.vercel.app',  // Production frontend
+  'https://acewaec-frontend.netlify.app', // Alternative frontend
+];
+
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
-    'https://acewaec-frontend.vercel.app',
-    'http://localhost:3000',
-  ],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️ CORS blocked request from origin: ${origin}`);
+      callback(new Error('CORS not allowed'));
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 3600
 }));
+
+// ✅ Handle preflight requests
+app.options('*', cors());
 
 /**
  * ============================================================================
