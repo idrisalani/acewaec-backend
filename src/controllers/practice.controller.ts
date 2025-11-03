@@ -2,6 +2,7 @@
  * backend/src/controllers/practice.controller.ts
  * ✅ COMPLETE FIXED VERSION - All TypeScript errors resolved
  * 
+ * //
  * Fixed issues:
  * - FIXED: Removed unnecessary 'next' parameter from all controller methods
  * - FIXED: Method signatures now match route handler calls (2 params: req, res)
