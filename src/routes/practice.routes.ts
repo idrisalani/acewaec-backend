@@ -116,24 +116,26 @@ router.get(
       console.log('📚 Fetching subjects...');
       console.log('   Category:', category || 'All');
 
-      // ✅ FIX 1: Use distinct to prevent duplicates
+      // ✅ KEY FIX 1: Use include instead of select for _count
+      // ✅ KEY FIX 2: Filter by categories array with "has" operator
       const subjects = await (req as any).prisma.subject.findMany({
         where: {
-          ...(category && category !== 'ALL' && { 
-            category: category as string 
+          // ✅ CORRECTED: Filter by categories array, not single field
+          ...(category && category !== 'ALL' && {
+            categories: {
+              has: category as string  // ← Search in array!
+            }
           }),
+          isActive: true  // ← Optional: Only active subjects
         },
-        select: {
-          id: true,
-          name: true,
-          code: true,
-          category: true,
+        // ✅ KEY: Use include (not select) to get _count
+        include: {
           _count: {
             select: { questions: true }
           }
         },
         orderBy: { name: 'asc' },
-        distinct: ['id'],  // ← KEY FIX: Prevents duplicates
+        distinct: ['id'],  // ← Still prevents duplicates
       });
 
       // ✅ FIX 2: Additional dedup safety
@@ -144,7 +146,8 @@ router.get(
             id: subject.id,
             name: subject.name,
             code: subject.code,
-            category: subject.category,
+            categories: subject.categories,  // ← Use categories array
+            description: subject.description,
             questionCount: subject._count?.questions || 0
           });
         }

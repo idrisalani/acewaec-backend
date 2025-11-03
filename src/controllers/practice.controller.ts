@@ -40,37 +40,65 @@ export class PracticeController {
     try {
       const { category } = req.query;
 
-      const where = category
-        ? { categories: { has: category as string }, isActive: true }
-        : { isActive: true };
+      console.log('📚 Fetching subjects...');
+      console.log('   Category:', category || 'All');
 
+      // ✅ CORRECTED: Use include instead of select for _count
       const subjects = await prisma.subject.findMany({
-        where,
+        where: {
+          // ✅ CORRECTED: No category filter needed if not in model
+          // OR filter by categories array if needed
+          ...(category && category !== 'ALL' && {
+            categories: {
+              has: category as string  // ← Search in array
+            }
+          }),
+          isActive: true
+        },
         include: {
           _count: {
             select: { questions: true }
           }
         },
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
       });
 
-      const subjectsWithCounts = subjects.map(subject => ({
-        id: subject.id,
-        name: subject.name,
-        code: subject.code,
-        description: subject.description,
-        categories: subject.categories,
-        isActive: subject.isActive,
-        questionCount: subject._count.questions,
-        createdAt: subject.createdAt,
-        updatedAt: subject.updatedAt
-      }));
+      console.log(`✅ Found ${subjects.length} subjects before dedup`);
 
-      return res.json({ success: true, data: subjectsWithCounts });
+      // ✅ Deduplication by ID
+      const uniqueMap = new Map<string, any>();
+      subjects.forEach(subject => {
+        if (!uniqueMap.has(subject.id)) {
+          uniqueMap.set(subject.id, {
+            id: subject.id,
+            name: subject.name,
+            code: subject.code,
+            categories: subject.categories,  // ← Use categories array
+            description: subject.description,
+            questionCount: subject._count?.questions || 0
+          });
+        }
+      });
+
+      const uniqueSubjects = Array.from(uniqueMap.values());
+
+      console.log(`✅ Found ${uniqueSubjects.length} unique subjects (no duplicates)`);
+      console.log('   Subjects:', uniqueSubjects.map(s => `${s.name}(${s.questionCount})`).join(', '));
+
+      // Set cache headers
+      res.set('Cache-Control', 'public, max-age=300');
+
+      return res.json({
+        success: true,
+        data: uniqueSubjects
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to get subjects';
-      console.error('❌ Error in getSubjects:', message);
-      return res.status(500).json({ success: false, error: message });
+      console.error('❌ Error fetching subjects:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch subjects',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
