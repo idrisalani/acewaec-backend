@@ -220,7 +220,21 @@ export class PracticeController {
         });
       }
 
-      // ✅ STEP 4: Fetch questions
+      // ✅ STEP 4: Map SessionType - FIX for enum validation
+      const typeMapping: { [key: string]: string } = {
+        'TIMED': 'TIMED_TEST',
+        'TIMED_TEST': 'TIMED_TEST',
+        'UNTIMED': 'PRACTICE',
+        'PRACTICE': 'PRACTICE',
+        'COMPREHENSIVE': 'COMPREHENSIVE',
+        'MOCK_EXAM': 'MOCK_EXAM',
+        'CUSTOM': 'CUSTOM',
+      };
+
+      const sessionType = typeMapping[type] || 'PRACTICE';
+      console.log('🔄 Type mapping:', type, '→', sessionType);
+
+      // ✅ STEP 5: Fetch questions
       console.log('🔍 Fetching questions for subjects:', subjectIds);
 
       const questions = await prisma.question.findMany({
@@ -246,14 +260,14 @@ export class PracticeController {
         });
       }
 
-      // ✅ STEP 5: Create practice session
+      // ✅ STEP 6: Create practice session with MAPPED type
       console.log('💾 Creating practice session...');
 
       const session = await prisma.practiceSession.create({
         data: {
           userId: req.user.id,
           name: `Practice Session - ${new Date().toLocaleString()}`,
-          type: type as any,
+          type: sessionType as any,  // ✅ Use mapped type!
           status: 'IN_PROGRESS',
           totalQuestions: questions.length,
           duration: duration || null,
@@ -265,8 +279,9 @@ export class PracticeController {
       });
 
       console.log('✅ Session created:', session.id);
+      console.log('   Type:', session.type);
 
-      // ✅ STEP 6: Map questions to session
+      // ✅ STEP 7: Map questions to session
       console.log('🔗 Mapping questions to session...');
 
       await Promise.all(
@@ -284,7 +299,7 @@ export class PracticeController {
 
       console.log(`✅ Mapped ${questions.length} questions`);
 
-      // ✅ STEP 7: Return response with CORRECT mapping
+      // ✅ STEP 8: Build response
       const response = {
         success: true,
         data: {
@@ -298,7 +313,7 @@ export class PracticeController {
             duration: session.duration,
             createdAt: session.startedAt,
           },
-          // ✅ FIXED: Correct response mapping
+          // ✅ Questions with correct mapping
           questions: questions.map((q, index) => ({
             id: q.id,
             content: q.content,
@@ -327,7 +342,12 @@ export class PracticeController {
         },
       };
 
-      console.log('📤 Sending response...');
+      console.log('📤 Sending response:', {
+        sessionId: session.id,
+        questionsCount: questions.length,
+        sessionType: session.type
+      });
+
       return res.status(201).json(response);
 
     } catch (error) {
