@@ -120,7 +120,7 @@ router.get(
 
       // ✅ KEY FIX 1: Use include instead of select for _count
       // ✅ KEY FIX 2: Filter by categories array with "has" operator
-      const subjects = await prisma.subject.findMany({ 
+      const subjects = await prisma.subject.findMany({
         where: {
           // ✅ CORRECTED: Filter by categories array, not single field
           ...(category && category !== 'ALL' && {
@@ -196,24 +196,26 @@ router.get(
 
       const topics = await prisma.topic.findMany({
         where: {
-          subjectId,
+          subjectId: subjectId,
           isActive: true
         },
-         include: {
+        include: {
           _count: {
             select: { questions: true }
           }
         },
         orderBy: { name: 'asc' },
-        distinct: ['id']  // ← Prevent accidental duplicates
+        distinct: ['id'],  // ← ADD THIS for deduplication
       });
 
-      // Dedup safety
+      // ✅ ADD DEDUPLICATION LOGIC (like subjects)
       const uniqueMap = new Map<string, any>();
       topics.forEach(topic => {
         if (!uniqueMap.has(topic.id)) {
           uniqueMap.set(topic.id, {
-            ...topic,
+            id: topic.id,
+            name: topic.name,
+            description: topic,
             questionCount: topic._count?.questions || 0
           });
         }
@@ -223,18 +225,16 @@ router.get(
 
       console.log(`✅ Found ${uniqueTopics.length} unique topics`);
 
-      // Set cache headers
-      res.set('Cache-Control', 'public, max-age=300'); // 5 minutes
-
       return res.json({
         success: true,
         data: uniqueTopics
       });
     } catch (error) {
-      console.error('Error fetching topics:', error);
+      console.error('❌ Error fetching topics:', error);
       return res.status(500).json({
         success: false,
         error: 'Failed to fetch topics',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
       });
     }
   })

@@ -366,18 +366,19 @@ model Subject {
 }
 
 model Topic {
-  id        String  @id @default(cuid())
-  name      String
-  subjectId String
-  isActive  Boolean @default(true)
+  id          String  @id @default(cuid())
+  name        String
+  subjectId   String
+  description String?
+  isActive    Boolean @default(true)
   
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   // Relations
-  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  questions Question[]
+  subject     Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions   Question[]
   performanceAnalytics PerformanceAnalytics[]
   
   @@map("topics")
