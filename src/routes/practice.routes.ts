@@ -5,7 +5,9 @@ import { Router, Response, NextFunction, RequestHandler } from 'express';
 import { PracticeController } from '../controllers/practice.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { AuthRequest } from '../types/index';
+import { PrismaClient } from '@prisma/client';  // ← ADD THIS
 
+const prisma = new PrismaClient();  // ← ADD THIS
 const router = Router();
 
 /**
@@ -118,7 +120,7 @@ router.get(
 
       // ✅ KEY FIX 1: Use include instead of select for _count
       // ✅ KEY FIX 2: Filter by categories array with "has" operator
-      const subjects = await (req as any).prisma.subject.findMany({
+      const subjects = await prisma.subject.findMany({ 
         where: {
           // ✅ CORRECTED: Filter by categories array, not single field
           ...(category && category !== 'ALL' && {
