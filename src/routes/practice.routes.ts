@@ -194,15 +194,12 @@ router.get(
 
       console.log('🔍 Fetching topics for subject:', subjectId);
 
-      const topics = await (req as any).prisma.topic.findMany({
+      const topics = await prisma.topic.findMany({
         where: {
           subjectId,
           isActive: true
         },
-        select: {
-          id: true,
-          name: true,
-          description: true,
+         include: {
           _count: {
             select: { questions: true }
           }
