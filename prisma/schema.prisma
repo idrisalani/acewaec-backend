@@ -369,7 +369,7 @@ model Topic {
   id          String  @id @default(cuid())
   name        String
   subjectId   String
-  description String?
+  // description String?
   isActive    Boolean @default(true)
   
   // Timestamps

@@ -215,7 +215,7 @@ router.get(
           uniqueMap.set(topic.id, {
             id: topic.id,
             name: topic.name,
-            description: topic.description,
+            // description: topic.description,
             questionCount: topic._count?.questions || 0
           });
         }
