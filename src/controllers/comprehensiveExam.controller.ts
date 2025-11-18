@@ -1,9 +1,9 @@
 // backend/src/controllers/comprehensiveExam.controller.ts
-// ✅ RECONCILED - Combines both implementations with all methods
+// ✅ FIXED - Corrected Decimal import and usage
 
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { AuthRequest } from '../types'; // ✅ FIX: Import from types, not middleware
+import { AuthRequest } from '../types'; // ✅ FIX: Import from types
 import { ComprehensiveExamService } from '../services/comprehensiveExam.service';
 
 const prisma = new PrismaClient();

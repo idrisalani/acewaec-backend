@@ -1,294 +1,341 @@
 // backend/src/routes/goals.routes.ts
-// ✅ FIXED - Handles Prisma Decimal types correctly
+// ✅ FIXED - All TypeScript errors resolved with proper AuthRequest typing
+// Routes for managing goals and study streaks
 
-import express, { Response, RequestHandler } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { AuthRequest } from '../types/index';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { Router, Response } from 'express';
+import { AuthRequest } from '../types/index';  // ✅ FIXED: Import AuthRequest
+import { GoalsService, StreaksService } from '../services/goals.service';
+import authMiddleware from '../middleware/auth.middleware';
+import { GoalType, GoalStatus } from '@prisma/client';
 
-const router = express.Router();
-const prisma = new PrismaClient();
 
-const authMiddleware = authenticateToken as RequestHandler;
+const router = Router();
+const goalsService = new GoalsService();
+const streaksService = new StreaksService();
+
+// ✅ FIXED: Middleware now has proper typing
+const verifyGoalOwnership = async (req: AuthRequest, res: Response, next: any) => {
+  try {
+    const goal = await goalsService.getGoalById(req.params.goalId);
+    if (!goal || goal.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// ============= GOALS ROUTES =============
 
 /**
- * GET /goals
- * Get all user learning goals
- * Accessible by: All authenticated users
+ * POST /api/goals
+ * Create a new goal
+ * ✅ FIXED: Added AuthRequest type
  */
-router.get(
-  '/',
-  authMiddleware,
-  (async (req: AuthRequest, res: Response) => {
-    try {
-      if (!req.userId) {
-        res.status(401).json({
-          success: false,
-          error: 'User not authenticated',
-        });
-        return;
-      }
+router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, description, goalType, targetValue, targetDate } = req.body;
 
-      // TODO: Replace with actual goals table queries when created
-      // For now, return mock data based on user's performance analytics
-
-      const analytics = await prisma.performanceAnalytics.findMany({
-        where: { userId: req.userId },
-        include: {
-          subject: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      });
-
-      // Calculate suggested goals based on weak areas
-      const goals = analytics.map((analytic) => ({
-        id: `goal-${analytic.id}`,
-        userId: req.userId,
-        subjectId: analytic.subjectId,
-        subjectName: analytic.subject.name,
-        type: 'accuracy', // accuracy, speed, completion
-        targetValue: Math.ceil(Number(analytic.accuracyRate)) + 10, // Improve by 10% - FIX: Convert Decimal
-        currentValue: Math.floor(Number(analytic.accuracyRate)), // FIX: Convert Decimal
-        status: 'active',
-        createdAt: analytic.createdAt,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        progress: Math.floor(Number(analytic.accuracyRate)), // FIX: Convert Decimal
-      }));
-
-      // Add default goals if no analytics yet
-      if (goals.length === 0) {
-        goals.push(
-          {
-            id: 'goal-default-1',
-            userId: req.userId,
-            subjectId: null,
-            subjectName: 'All Subjects',
-            type: 'completion',
-            targetValue: 100, // Complete 100 practice sessions
-            currentValue: 0,
-            status: 'active',
-            createdAt: new Date(),
-            dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-            progress: 0,
-          },
-          {
-            id: 'goal-default-2',
-            userId: req.userId,
-            subjectId: null,
-            subjectName: 'Accuracy',
-            type: 'accuracy',
-            targetValue: 80,
-            currentValue: 0,
-            status: 'active',
-            createdAt: new Date(),
-            dueDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-            progress: 0,
-          }
-        );
-      }
-
-      res.json({
-        success: true,
-        data: goals,
-      });
-    } catch (error) {
-      console.error('Get goals error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch goals',
+    // Validation
+    if (!title || !goalType || !targetValue || !targetDate) {
+      return res.status(400).json({
+        error: 'Missing required fields: title, goalType, targetValue, targetDate',
       });
     }
-  }) as RequestHandler
+
+    if (!Object.values(GoalType).includes(goalType)) {
+      return res.status(400).json({ error: 'Invalid goal type' });
+    }
+
+    const goal = await goalsService.createGoal(req.user.id, {
+      title,
+      description,
+      type: goalType,  // ✅ FIXED: use goalType
+      targetValue,
+      dueDate: new Date(targetDate),
+    });
+
+    res.status(201).json(goal);
+  } catch (error) {
+    console.error('Error creating goal:', error);
+    res.status(500).json({ error: 'Failed to create goal' });
+  }
+});
+
+/**
+ * GET /api/goals
+ * Get all goals for authenticated user
+ * ✅ FIXED: Added AuthRequest type
+ */
+router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { status } = req.query;
+
+    const goals = await goalsService.getUserGoals(
+      req.user.id,
+      status as GoalStatus
+    );
+
+    res.json(goals);
+  } catch (error) {
+    console.error('Error fetching goals:', error);
+    res.status(500).json({ error: 'Failed to fetch goals' });
+  }
+});
+
+/**
+ * GET /api/goals/:goalId
+ * Get specific goal
+ */
+router.get('/:goalId', authMiddleware, verifyGoalOwnership, async (req: AuthRequest, res: Response) => {
+  try {
+    const goal = await goalsService.getGoalById(req.params.goalId);
+    res.json(goal);
+  } catch (error) {
+    console.error('Error fetching goal:', error);
+    res.status(500).json({ error: 'Failed to fetch goal' });
+  }
+});
+
+/**
+ * GET /api/goals/:goalId/progress
+ * Get goal progress percentage
+ */
+router.get(
+  '/:goalId/progress',
+  authMiddleware,
+  verifyGoalOwnership,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const progress = await goalsService.getGoalProgress(req.params.goalId);
+      if (progress === null) {
+        return res.status(404).json({ error: 'Goal not found' });
+      }
+      res.json({ progress });
+    } catch (error) {
+      console.error('Error fetching goal progress:', error);
+      res.status(500).json({ error: 'Failed to fetch goal progress' });
+    }
+  }
 );
 
 /**
- * GET /goals/:goalId
- * Get specific goal with detailed progress
- * Accessible by: All authenticated users
+ * PATCH /api/goals/:goalId/progress
+ * Update goal progress
  */
-router.get(
-  '/:goalId',
+router.patch(
+  '/:goalId/progress',
   authMiddleware,
-  (async (req: AuthRequest, res: Response) => {
+  verifyGoalOwnership,
+  async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.userId) {
-        res.status(401).json({
-          success: false,
-          error: 'User not authenticated',
-        });
-        return;
+      const { increment } = req.body;
+
+      if (typeof increment !== 'number' || increment <= 0) {
+        return res.status(400).json({ error: 'Invalid increment value' });
       }
 
-      const { goalId } = req.params;
+      const updatedGoal = await goalsService.updateGoalProgress(
+        req.params.goalId,
+        increment
+      );
 
-      // TODO: Replace with actual goal lookup
-      res.json({
-        success: true,
-        data: {
-          id: goalId,
-          userId: req.userId,
-          type: 'accuracy',
-          status: 'active',
-          targetValue: 90,
-          currentValue: 75,
-          progress: 83,
-          createdAt: new Date(),
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          progressHistory: [
-            { date: '2025-10-01', value: 60 },
-            { date: '2025-10-08', value: 68 },
-            { date: '2025-10-15', value: 72 },
-            { date: '2025-10-22', value: 75 },
-          ],
-        },
-      });
+      if (!updatedGoal) {
+        return res.status(404).json({ error: 'Goal not found' });
+      }
+
+      res.json(updatedGoal);
     } catch (error) {
-      console.error('Get goal error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch goal',
-      });
+      console.error('Error updating goal progress:', error);
+      res.status(500).json({ error: 'Failed to update goal progress' });
     }
-  }) as RequestHandler
+  }
 );
 
 /**
- * POST /goals
- * Create a new learning goal
- * Accessible by: All authenticated users
+ * POST /api/goals/:goalId/complete
+ * Complete a goal
  */
 router.post(
-  '/',
+  '/:goalId/complete',
   authMiddleware,
-  (async (req: AuthRequest, res: Response) => {
+  verifyGoalOwnership,
+  async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.userId) {
-        res.status(401).json({
-          success: false,
-          error: 'User not authenticated',
-        });
-        return;
+      const completedGoal = await goalsService.completeGoal(req.params.goalId);
+
+      if (!completedGoal) {
+        return res.status(404).json({ error: 'Goal not found' });
       }
 
-      const { subjectId, type, targetValue, dueDate } = req.body;
-
-      if (!type || !targetValue) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required fields: type, targetValue',
-        });
-        return;
-      }
-
-      // TODO: Create goal in database
-      const newGoal = {
-        id: `goal-${Date.now()}`,
-        userId: req.userId,
-        subjectId,
-        type,
-        targetValue,
-        currentValue: 0,
-        status: 'active',
-        createdAt: new Date(),
-        dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        progress: 0,
-      };
-
-      res.status(201).json({
-        success: true,
-        data: newGoal,
-      });
+      res.json(completedGoal);
     } catch (error) {
-      console.error('Create goal error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to create goal',
-      });
+      console.error('Error completing goal:', error);
+      res.status(500).json({ error: 'Failed to complete goal' });
     }
-  }) as RequestHandler
+  }
 );
 
 /**
- * PUT /goals/:goalId
- * Update a learning goal
- * Accessible by: All authenticated users
+ * POST /api/goals/:goalId/pause
+ * Pause a goal
  */
-router.put(
-  '/:goalId',
+router.post(
+  '/:goalId/pause',
   authMiddleware,
-  (async (req: AuthRequest, res: Response) => {
+  verifyGoalOwnership,
+  async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.userId) {
-        res.status(401).json({
-          success: false,
-          error: 'User not authenticated',
-        });
-        return;
+      const pausedGoal = await goalsService.pauseGoal(req.params.goalId);
+
+      if (!pausedGoal) {
+        return res.status(404).json({ error: 'Goal not found' });
       }
 
-      const { goalId } = req.params;
-      const { targetValue, status, dueDate } = req.body;
-
-      // TODO: Update goal in database
-      res.json({
-        success: true,
-        data: {
-          id: goalId,
-          userId: req.userId,
-          targetValue: targetValue || 90,
-          status: status || 'active',
-          dueDate: dueDate ? new Date(dueDate) : new Date(),
-        },
-      });
+      res.json(pausedGoal);
     } catch (error) {
-      console.error('Update goal error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to update goal',
-      });
+      console.error('Error pausing goal:', error);
+      res.status(500).json({ error: 'Failed to pause goal' });
     }
-  }) as RequestHandler
+  }
 );
 
 /**
- * DELETE /goals/:goalId
- * Delete a learning goal
- * Accessible by: All authenticated users
+ * POST /api/goals/:goalId/resume
+ * Resume a paused goal
+ */
+router.post(
+  '/:goalId/resume',
+  authMiddleware,
+  verifyGoalOwnership,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const resumedGoal = await goalsService.resumeGoal(req.params.goalId);
+
+      if (!resumedGoal) {
+        return res.status(404).json({ error: 'Goal not found' });
+      }
+
+      res.json(resumedGoal);
+    } catch (error) {
+      console.error('Error resuming goal:', error);
+      res.status(500).json({ error: 'Failed to resume goal' });
+    }
+  }
+);
+
+/**
+ * POST /api/goals/:goalId/abandon
+ * Abandon a goal
+ */
+router.post(
+  '/:goalId/abandon',
+  authMiddleware,
+  verifyGoalOwnership,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const abandonedGoal = await goalsService.abandonGoal(req.params.goalId);
+
+      if (!abandonedGoal) {
+        return res.status(404).json({ error: 'Goal not found' });
+      }
+
+      res.json(abandonedGoal);
+    } catch (error) {
+      console.error('Error abandoning goal:', error);
+      res.status(500).json({ error: 'Failed to abandon goal' });
+    }
+  }
+);
+
+/**
+ * DELETE /api/goals/:goalId
+ * Delete a goal
  */
 router.delete(
   '/:goalId',
   authMiddleware,
-  (async (req: AuthRequest, res: Response) => {
+  verifyGoalOwnership,
+  async (req: AuthRequest, res: Response) => {
     try {
-      if (!req.userId) {
-        res.status(401).json({
-          success: false,
-          error: 'User not authenticated',
-        });
-        return;
+      const deleted = await goalsService.deleteGoal(req.params.goalId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: 'Goal not found' });
       }
 
-      const { goalId } = req.params;
-
-      // TODO: Delete goal from database
-
-      res.json({
-        success: true,
-        message: 'Goal deleted successfully',
-        data: { goalId },
-      });
+      res.json({ success: true, message: 'Goal deleted' });
     } catch (error) {
-      console.error('Delete goal error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to delete goal',
-      });
+      console.error('Error deleting goal:', error);
+      res.status(500).json({ error: 'Failed to delete goal' });
     }
-  }) as RequestHandler
+  }
 );
+
+/**
+ * GET /api/goals/summary
+ * Get goals summary
+ * ✅ FIXED: Added AuthRequest type
+ */
+router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const summary = await goalsService.getGoalsSummary(req.user.id);
+    res.json(summary);
+  } catch (error) {
+    console.error('Error fetching goals summary:', error);
+    res.status(500).json({ error: 'Failed to fetch goals summary' });
+  }
+});
+
+// ============= STREAKS ROUTES =============
+
+/**
+ * GET /api/streaks/my-streak
+ * Get current user's streak
+ * ✅ FIXED: Added AuthRequest type
+ */
+router.get('/my-streak', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const stats = await streaksService.getStreakStats(req.user.id);
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching streak stats:', error);
+    res.status(500).json({ error: 'Failed to fetch streak stats' });
+  }
+});
+
+/**
+ * POST /api/streaks/update
+ * Update streak for user (called after completing practice session)
+ * ✅ FIXED: Added AuthRequest type
+ */
+router.post('/update', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const updatedStreak = await streaksService.updateStreak(req.user.id);
+    res.json(updatedStreak);
+  } catch (error) {
+    console.error('Error updating streak:', error);
+    res.status(500).json({ error: 'Failed to update streak' });
+  }
+});
+
+/**
+ * GET /api/streaks/leaderboard
+ * Get top streaks leaderboard
+ */
+router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
+  try {
+    const { limit = 10 } = req.query;
+    const topStreaks = await streaksService.getTopStreaks(
+      Math.min(parseInt(limit as string), 100)
+    );
+
+    res.json(topStreaks);
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
 
 export default router;

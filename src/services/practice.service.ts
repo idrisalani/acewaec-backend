@@ -1,5 +1,5 @@
 // backend/src/services/practice.service.ts
-// ✅ FULLY FIXED - All TypeScript errors resolved + FlaggedQuestion properly handled
+// ✅ FULLY FIXED - All TypeScript errors resolved + userId added to upsert create clause
 
 import { PrismaClient, SessionStatus, SessionType, DifficultyLevel } from '@prisma/client';
 import { AnalyticsService } from './analytics.service';
@@ -35,6 +35,7 @@ export interface SessionConfig {
  * 4. FlaggedQuestion handling with try-catch for graceful degradation
  * 5. Correct Prisma query include/select patterns
  * 6. Fixed comparison operators for enum types
+ * 7. ✅ CRITICAL FIX: Added userId field to PracticeAnswer.upsert() create clause (line 396)
  */
 export class PracticeService {
   /**
@@ -337,6 +338,7 @@ export class PracticeService {
 
   /**
    * ✅ Submit a single answer
+   * 🔧 FIXED: Added userId to upsert create clause (was missing, causing TS2322 error)
    */
   static async submitAnswer(
     sessionId: string,
@@ -381,7 +383,7 @@ export class PracticeService {
       const correctOption = question.options.find((opt) => opt.isCorrect);
       const isCorrect = correctOption?.label === selectedAnswer;
 
-      // ✅ Store answer
+      // ✅ Store answer with FIXED userId field in create clause
       const answer = await prisma.practiceAnswer.upsert({
         where: {
           sessionId_questionId: {
@@ -395,6 +397,7 @@ export class PracticeService {
         },
         create: {
           sessionId,
+          userId,            // ✅ FIX: Added required userId field
           questionId,
           selectedAnswer,
           isCorrect,

@@ -1,21 +1,11 @@
 /**
  * backend/src/controllers/practice.controller.ts
- * ✅ COMPLETE FIXED VERSION - All TypeScript errors resolved
+ * ✅ COMPLETE FIXED VERSION - TypeScript Error Resolved
  * 
- * //
- * Fixed issues:
- * - FIXED: Removed unnecessary 'next' parameter from all controller methods
- * - FIXED: Method signatures now match route handler calls (2 params: req, res)
- * - FIXED: Replaced non-existent sessionQuestion with practiceAnswers
- * - FIXED: Added subject and topic relations to question query
- * - FIXED: Added options relation to question query
- * - FIXED: Proper Prisma include() statements
- * - Added missing getUserSessions method
- * - Added missing getSessionQuestions method
- * - Added missing getAnswerHistory method
- * - Added missing getResults method
- * - Added deduplication in getTopicsForSubject
- * - Better error handling and logging
+ * 🔧 FIX APPLIED:
+ * - FIXED: Added missing userId field to PracticeAnswer.create() calls
+ * - The userId field is REQUIRED in the Prisma schema (no ? modifier)
+ * - This was causing "Type 'string' is not assignable to type 'never'" error at line 318
  */
 
 import { Response } from 'express';
@@ -190,6 +180,7 @@ export class PracticeController {
   /**
    * ✅ FIXED: Start Practice Session with comprehensive validation
    * ✅ FIXED: Removed 'next' parameter - not used in this method
+   * ✅ FIXED: Added userId to PracticeAnswer creation (Line 318)
    * 
    * Expected Request Body:
    * {
@@ -310,6 +301,7 @@ export class PracticeController {
       console.log('   Type:', session.type);
 
       // ✅ STEP 7: Map questions to session
+      // 🔧 FIXED: Added userId field (required in Prisma schema)
       console.log('🔗 Mapping questions to session...');
 
       await Promise.all(
@@ -317,6 +309,7 @@ export class PracticeController {
           prisma.practiceAnswer.create({
             data: {
               sessionId: session.id,
+              userId: req.user.id,  // ✅ FIX: Added required userId field
               questionId: q.id,
               selectedAnswer: null,
               isCorrect: false,
@@ -409,7 +402,6 @@ export class PracticeController {
   static async getSession(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      // const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -459,7 +451,6 @@ export class PracticeController {
    */
   static async getUserSessions(req: AuthRequest, res: Response) {
     try {
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
       const { limit = 10, offset = 0, status } = req.query;
 
@@ -510,16 +501,10 @@ export class PracticeController {
    * Get questions for a specific session
    * GET /practice/sessions/:sessionId/questions
    * ✅ FIXED: Removed 'next' parameter
-   * ✅ FIXED:
-   * - Adds persistent question numbering
-   * - Numbers don't change with navigation
-   * - Better error handling
-   * - Includes all required relations
    */
   static async getSessionQuestions(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -606,7 +591,6 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { questionId, selectedAnswer } = req.body;
-      // const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -679,7 +663,6 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { answers } = req.body;
-      // const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -762,7 +745,6 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { questionId, isFlagged } = req.body;
-      // const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -815,13 +797,11 @@ export class PracticeController {
   /**
    * Pause a practice session
    * PATCH /practice/sessions/:sessionId/pause
-   * POST /practice/sessions/:sessionId/pause (deprecated)
    * ✅ FIXED: Removed 'next' parameter
    */
   static async pauseSession(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -873,13 +853,11 @@ export class PracticeController {
   /**
    * Resume a paused practice session
    * PATCH /practice/sessions/:sessionId/resume
-   * POST /practice/sessions/:sessionId/resume (deprecated)
    * ✅ FIXED: Removed 'next' parameter
    */
   static async resumeSession(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -937,7 +915,6 @@ export class PracticeController {
     try {
       const { sessionId } = req.params;
       const { timeSpent } = req.body;
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -1002,7 +979,6 @@ export class PracticeController {
   static async getSessionResults(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -1107,7 +1083,6 @@ export class PracticeController {
   static async getAnswerHistory(req: AuthRequest, res: Response) {
     try {
       const { sessionId } = req.params;
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -1198,7 +1173,6 @@ export class PracticeController {
    */
   static async getResults(req: AuthRequest, res: Response) {
     try {
-      //const userId = (req as any).userId;
       const userId = req.user?.id;
 
       if (!userId) {
